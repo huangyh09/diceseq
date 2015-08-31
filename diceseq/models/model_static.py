@@ -66,8 +66,35 @@ def Dirichlet_pdf(D, alpha, log=False):
     if log == False: RV = np.exp(RV)
     return RV
 
+def Geweke_Z(X, first=0.1, last=0.5):
+    """
+    Geweke diagnostics for MCMC chain convergence.
+    See Geweke J. Evaluating the accuracy of sampling-based approaches to the 
+    calculation of posterior moments[M]. Minneapolis, MN, USA: Federal Reserve 
+    Bank of Minneapolis, Research Department, 1991.
+    and https://pymc-devs.github.io/pymc/modelchecking.html#formal-methods
 
-def Psi_MCMC_MH(R_mat, len_isos, prob_isos, cov_fixed, alpha_Dir, M=100):
+    Parameters
+    ----------
+    X : 1-D array_like, (N, )
+        The uni-variate MCMC sampled chain for convergence diagnostic.
+    first : float
+        The proportion of first part in Geweke diagnostics.
+    last : float
+        The proportion of last part in Geweke diagnostics.
+
+    Returns
+    -------
+    Z : float
+        The Z score of Geweke diagnostics.
+    """
+    N = X.shape[0]
+    A = X[:first*N]
+    B = X[last*N:]
+    Z = abs(A.mean() - B.mean()) / np.sqrt(np.var(A) + np.var(B))
+    return Z
+
+def Psi_MCMC_MH(R_mat, len_isos, prob_isos, cov_fixed, alpha_Dir, M=100000, start=3000, gap=1000):
     """
     Calculate the proportion of each isoforms with all reads via MCMC samplling
     Parameters
@@ -128,27 +155,30 @@ def Psi_MCMC_MH(R_mat, len_isos, prob_isos, cov_fixed, alpha_Dir, M=100):
         P_try   = (np.sum(np.log(np.dot(R_mat*prob_isos, fsi_try))) + 
                    Dirichlet_pdf(psi_try, alpha_Dir, log=True))
         
-        # step 2: calculate the MH ratio
         Q_now = logistic_normal_pdf(psi_now, mu_try, cov_fixed, log=True)
         Q_try = logistic_normal_pdf(psi_try, mu_now, cov_fixed, log=True)
+
+        # step 2: calculate the MH ratio, accept or reject the proposal
         alpha = min(np.exp(P_try+Q_now-P_now-Q_try), 1)
-        if alpha is None:
-            # print len_isos, psi_try
-            # print mu_now, mu_try, psi_freq_try
-            # print P_try, Q_now, P_now, Q_try
-            print "alpha is none, please check!"
-            Psi_all[i,:] = psi_now
-            continue
-        
-        # step 3. accept or reject the proposal
-        mu = np.random.rand()
-        if mu < alpha:
+        if alpha is None: print "alpha is none!"
+        elif np.random.rand(1) < alpha:
             mu_now  = mu_try  + 0
             psi_now = psi_try + 0
             fsi_now = fsi_try + 0
             P_now   = P_try   + 0
-            #print P_now, psi_now
         Psi_all[i,:] = psi_now
+
+        #step 3. convergence diagnostics
+        if i >= start and i % gap == 0:
+            conv = 1
+            for k in range(K):
+                if Geweke_Z(Psi_all[:i, k]) > 2: 
+                    conv = 0
+                    break
+            if conv == 1:
+                Psi_all = Psi_all[:i,:]
+                break
+
     return Psi_all
 
 

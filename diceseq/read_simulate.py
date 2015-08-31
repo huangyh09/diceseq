@@ -10,7 +10,8 @@ from utils.bias_utils import BiasFile, FastaFile
 from utils.sam_utils import load_samfile, fetch_reads
 from utils.tran_utils import TranUnits, Transcript, TranSplice
 
-if __name__ == "__main__":
+
+def main():
     #part 0. parse command line options
     parser = OptionParser()
     parser.add_option("--anno_file", "-a", dest="anno_file", default=None,
@@ -36,12 +37,17 @@ if __name__ == "__main__":
     if options.anno_file == None:
         print "Error: need --anno_file for annotation."
         sys.exit(1)
+    else:
+        anno = load_annotation(options.anno_file)
+
+    if options.gene_file == None:
+        gene_list = anno["gene_id"]
+    else:
+        gene_list = np.loadtxt(options.gene_file, dtype="str")
 
     ref_file  = options.ref_file
     out_file  = options.out_file
     bias_file = options.bias_file
-    anno_file = options.anno_file
-    gene_file = options.gene_file
     RPK       = int(options.RPK)
     rlen      = int(options.rlen)
     ratio     = float(options.ratio)
@@ -51,15 +57,13 @@ if __name__ == "__main__":
     fastaFile = FastaFile(ref_file)
     fid1      = open(out_file + "_1.fq", "w")
     fid2      = open(out_file + "_2.fq", "w")
-    anno      = load_annotation(anno_file)
-    gene_list = np.loadtxt(gene_file, dtype="str")
 
     cnt = 0
     qua = []
     qua[:] = "~" * rlen
     qua = "".join(qua)
     for g in gene_list:
-        i = np.where(np.array(anno["gene_name"]) == g)[0][0]
+        i = np.where(np.array(anno["gene_id"]) == g)[0][0]
         _gene   = anno["gene_id"][i]
         _exons  = anno["exons"][i]
         _strand = anno["strand"][i]
@@ -96,3 +100,5 @@ if __name__ == "__main__":
     fid1.close()
     fid2.close()
 
+if __name__ == "__main__":
+    main()

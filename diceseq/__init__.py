@@ -5,9 +5,11 @@
 __version__ = "0.0.1"
 
 from utils.reads_utils import ReadSet
-from utils.gtf_utils import load_annotation
 from utils.bias_utils import FastaFile, BiasFile
+from utils.tran_utils import TranUnits, TranSplice
 from utils.sam_utils import load_samfile, fetch_reads
-from utils.tran_utils import TranUnits, Transcript, TranSplice
+from utils.gtf_utils import Gene, Transcript, load_annotation
+
+from models.model_GP import Psi_GP_MH
 from models.model_static import Psi_MCMC_MH, Psi_analytic, Psi_junction
-from models.model_dynamic import Psi_dynamic, Psi_dynamic_collapse
+

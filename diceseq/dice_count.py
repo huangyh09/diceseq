@@ -6,6 +6,7 @@
 # exon2 paired reads. In addition, it also provides the normalized counts
 # RPK (reads per kilo-base).
 
+import sys
 import h5py
 import pysam
 import numpy as np
@@ -14,13 +15,17 @@ from utils.reads_utils import ReadSet
 from utils.gtf_utils import load_annotation
 from utils.sam_utils import load_samfile, fetch_reads
 
-if __name__ == "__main__":
+def main():
     #part 0. parse command line options
     parser = OptionParser()
     parser.add_option("--anno_file", "-a", dest="anno_file", default=None,
         help="The annotation file in gtf format")
+    parser.add_option("--anno_source", dest="anno_source", default="Ensembl",
+        help="The annotation source of the gtf file")
     parser.add_option("--sam_file", "-s", dest="sam_file", default=None,
         help="The indexed alignement file in bam/sam format")
+    parser.add_option("--total_reads", dest="total_reads", default=None,
+        help="The total reads for calculate RPKM.")
     parser.add_option("--gene_file", "-g", dest="gene_file",
         help="The list of genes in use.")
     parser.add_option("--out_file", "-o", dest="out_file",
@@ -37,77 +42,121 @@ if __name__ == "__main__":
         default="1", help="the mimimum length of reads.")
     parser.add_option("--is_mated", dest="is_mated",
         default="True", help="process reads as paired-end or not.")
+    parser.add_option("--total_only", dest="total_only", default="True",
+        help="provide total reads count only; if False the specific reads" +
+        " for the exon-intron-exon structure.")
+    parser.add_option("--biotype_rm", dest="biotype_rm", default=None,
+        help="The exclusive biotype.")
+    parser.add_option("--biotype_only", dest="biotype_only", default=None,
+        help="The only used biotype.")
 
 
     (options, args) = parser.parse_args()
+    anno_source = options.anno_source
     if options.anno_file == None:
         print "Error: need --anno_file for annotation."
         sys.exit(1)
+    else:
+        anno = load_annotation(options.anno_file, anno_source)
     if options.sam_file == None:
         print "Error: need --sam_file for reads indexed and aliged reads."
         sys.exit(1)
+    else:
+        samFile = load_samfile(options.sam_file)
+
     if options.gene_file == None:
-        gene_list = anno["gene_name"]
+        gene_list = anno["gene_id"]
     else:
         gene_list = np.loadtxt(options.gene_file, dtype="str")
     
-    sam_file  = options.sam_file
-    out_file  = options.out_file
-    anno_file = options.anno_file
-    rm_duplicate = bool(options.rm_duplicate)
-    inner_only   = bool(options.inner_only)
-    is_mated     = bool(options.is_mated)
+    out_file     = options.out_file
+    is_mated     = bool(options.is_mated == "True")
     mapq_min     = int(options.mapq_min)
     rlen_min     = int(options.rlen_min)
+    inner_only   = bool(options.inner_only == "True")
+    total_only   = bool(options.total_only == "True")
+    biotype_rm   = options.biotype_rm
+    total_reads  = options.total_reads
+    biotype_only = options.biotype_only
+    rm_duplicate = bool(options.rm_duplicate == "True")
     mismatch_max = int(options.mismatch_max)
     
-    samFile   = load_samfile(sam_file)
-    anno      = load_annotation(anno_file)
+    
+    print "Welcome to dice-count! %d potential genes are under counting." %len(gene_list)
 
-    print "Welcome to dice-count! %d genes are under counting." %len(gene_list)
+    cnt_name = ["exon1", "exon1_intron", "intron", "intron_exon2",
+                "exon2","exon1_exon2_junc", "exon1_exon2_vague"]
 
-    cnt_name = ["exon1", "exon1_intron", "intron", "intron_exon2", "exon2",
-                "exon1_exon2_junc", "exon1_exon2_vague"]
+    if total_reads is None: RPKM_symbol = "RPK"
+    else: RPKM_symbol = "RPKM"
 
     fid = open(out_file, "w")
-    head_line = "gene"
-    for i in range(len(cnt_name)):
-        head_line += "\t" + cnt_name[i] + "_cnt"
-    for i in range(len(cnt_name)):
-        head_line += "\t" + cnt_name[i] + "_RPK"
+    if total_only != True:
+        head_line = "gene_id\tgene_name\tbiotype"
+        for i in range(len(cnt_name)):
+            head_line += "\t" + cnt_name[i] + "_cnt"
+        for i in range(len(cnt_name)):
+            head_line += "\t" + cnt_name[i] + RPKM_symbol
+    else:
+        head_line = "gene_id\tgene_name\tbiotype\tcount\t" + RPKM_symbol
     fid.writelines(head_line + "\n")
     
     for g in range(gene_list.shape[0]):
-        i = np.where(np.array(anno["gene_name"]) == gene_list[g])[0][0]
+        i = np.where(np.array(anno["gene_id"]) == gene_list[g])[0][0]
+
+        if (biotype_rm is not None and 
+            biotype_rm.split("---").count(anno["biotype"][i]) == 1): continue
+        if (biotype_only is not None and 
+            biotype_only.split("---").count(anno["biotype"][i]) == 0): continue
 
         _gene   = anno["gene_id"][i]
-        _exons  = anno["exons"][i]
         _strand = anno["strand"][i]
         _chrom  = str(anno["chrom"][i])
-        _start  = anno["tran_start"][i]
-        _stop   = anno["tran_stop"][i]
+        _start  = anno["gene_start"][i]
+        _stop   = anno["gene_stop"][i]
 
         reads = fetch_reads(samFile, _chrom, _start, _stop, rm_duplicate,
                             inner_only, mapq_min, mismatch_max,
                             rlen_min, is_mated)
-        
-        rdSet = ReadSet(reads["reads1u"])
-        rdSet.get_loc_idx(_exons, _strand)
-        count = rdSet.loc_idx.sum(axis=0)
-        RPK   = rdSet.RPK_use.sum(axis=0)
 
-        rdSet = ReadSet(reads["reads2u"])
-        rdSet.get_loc_idx(_exons, _strand)
-        count += rdSet.loc_idx.sum(axis=0)
-        RPK   += rdSet.RPK_use.sum(axis=0)
+        if total_only == True:
+            count = len(reads["reads1u"]) + len(reads["reads2u"])
+            count += len(reads["reads2"])
+            if total_reads is None:
+                RPK   = count * 1000.0 / abs(_stop - _start + 1)
+            else:
+                RPK   = count * 10**9 / (abs(_stop - _start + 1) * float(total_reads))
+            count = [count]
+            RPK   = [RPK]
+        elif (anno["genes"][i].tranNum > 0 and 
+              anno["genes"][i].trans[0].exonNum == 2):
+        # _exons  = anno["exons"][i]
+        # _exons.shape[0] == 2:
+            rdSet = ReadSet(reads["reads1u"])
+            rdSet.get_loc_idx(anno["genes"][i].trans[0].exons, _strand)
+            count = rdSet.loc_idx.sum(axis=0)
+            RPK   = rdSet.RPK_use.sum(axis=0)
 
-        rdSet = ReadSet(reads["reads1"], reads["reads2"])
-        rdSet.get_loc_idx(_exons, _strand)
-        count += rdSet.loc_idx.sum(axis=0)
-        RPK   += rdSet.RPK_use.sum(axis=0)
+            rdSet = ReadSet(reads["reads2u"])
+            rdSet.get_loc_idx(anno["genes"][i].trans[0].exons, _strand)
+            count += rdSet.loc_idx.sum(axis=0)
+            RPK   += rdSet.RPK_use.sum(axis=0)
 
-        a_line = gene_list[g] + 
-        a_line += "\t".join(["%d" %num for num in list(count[g,:])]) + "\t" 
-        a_line += "\t".join(["%.3f" %num for num in list(RPK[g,:])]) + "\n"
+            rdSet = ReadSet(reads["reads1"], reads["reads2"])
+            rdSet.get_loc_idx(anno["genes"][i].trans[0].exons, _strand)
+            count += rdSet.loc_idx.sum(axis=0)
+            RPK   += rdSet.RPK_use.sum(axis=0)
+
+            if total_reads is not None:
+                RPK = RPK * 10**6 / float(total_reads)
+        else: continue
+
+        a_line = anno["gene_id"][i] + "\t" + anno["gene_name"][i] + "\t"
+        a_line += anno["biotype"][i] + "\t"
+        a_line += "\t".join(["%d" %num for num in list(count)]) + "\t" 
+        a_line += "\t".join(["%.3f" %num for num in list(RPK)]) + "\n"
         fid.writelines(a_line)
-    fid.close()
+    fid.close()    
+
+if __name__ == "__main__":
+    main()

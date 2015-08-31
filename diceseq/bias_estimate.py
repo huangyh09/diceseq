@@ -1,15 +1,14 @@
 # This file is to esitmate the sequecne and positon bias parameters.
 
 import sys
-sys.path.insert(0, '../')
-
 import h5py
 import numpy as np
 from optparse import OptionParser
-from isplice import FastaFile, BiasFile
-from isplice import load_annotation, load_samfile, fetch_reads
+from utils.gtf_utils import load_annotation
+from utils.bias_utils import BiasFile, FastaFile
+from utils.sam_utils import load_samfile, fetch_reads
 
-if __name__ == "__main__":
+def main():
     #part 0. parse command line options
     parser = OptionParser()
     parser.add_option("--anno_file", "-a", dest="anno_file", default=None,
@@ -121,3 +120,6 @@ if __name__ == "__main__":
                 biasFile.set_both_bias(seq, pos, tlen, weight, end, "unif")
 
     biasFile.save_file(out_file)
+
+if __name__ == "__main__":
+    main()

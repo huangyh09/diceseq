@@ -44,33 +44,45 @@ class ReadSet(object):
         
         loc_idx = np.zeros((self.length, 7), bool)
         len_use = np.zeros((self.length, 7)) # unfinished
+
         # exon1
         loc_idx[:,0] =  (self.dloc.max(axis=1) <= self.exons[0,1])
-        # len_use[:,0] = max(0, self.exons[0,1] - self.dloc.max(axis=1))
+        len_use[:,0] = abs(self.exons[0,1] - self.exons[0,0]) + 1
+
         # exon1-intron1 junction, SSite5
         loc_idx[:,1] = ((self.uloc.min(axis=1) <= self.exons[0,1]-overhang+1) *
                         (self.dloc.max(axis=1) <= self.exons[1,0]-1) *
                         (self.dloc.max(axis=1) >= self.exons[0,1]+overhang))
-        # len_use[:,0] = max(0, self.exons[0,1]-overhang+1 - self.uloc.min(axis=1))
+        len_use[:,1] = abs(self.dloc.max(axis=1) - self.uloc.min(axis=1))
 
         # intron1
         loc_idx[:,2] = ((self.uloc.min(axis=1) >= self.exons[0,1]+1) *
                         (self.dloc.max(axis=1) <= self.exons[1,0]-1))
+        len_use[:,2] = abs(self.exons[1,0] - self.exons[0,1]) - 1
+
         # intron1-exon2 junction, SSite3
         loc_idx[:,3] = ((self.uloc.min(axis=1) >= self.exons[0,1]+1) *
                         (self.uloc.min(axis=1) <= self.exons[1,0]-overhang) *
                         (self.dloc.max(axis=1) >= self.exons[1,0]+overhang-1))
+        len_use[:,3] = abs(self.dloc.max(axis=1) - self.uloc.min(axis=1))
+
         # exon2
         loc_idx[:,4] =  (self.uloc.min(axis=1) >= self.exons[1,0])
+        len_use[:,4] = abs(self.exons[1,1] - self.exons[1,0]) + 1
+
         # exon1-exon2 junction, junction
         loc_idx[:,5] = ((self.uloc <= self.exons[0,1]-overhang+1) *
                         (self.dloc >= self.exons[1,0]+overhang-1) *
                         (self.dloc-self.uloc-self.qlen > self.seglen[1]-5)
                         ).sum(axis=1)>0
+        len_use[:,5] = abs(self.dloc.max(axis=1) - self.uloc.min(axis=1))
+
         # exon1-intron-exon2
         loc_idx[:,6] = ((self.uloc.min(axis=1) <= self.exons[0,1]) *
                         (self.dloc.max(axis=1) >= self.exons[1,0]) * 
                         (True - loc_idx[:,5]))
+        len_use[:,6] = abs(self.dloc.max(axis=1) - self.uloc.min(axis=1))
+        
         # # exon1-exon2 unsure, exon_both
         # loc_idx[:,6] = ((self.uloc.max(axis=1) >= self.exons[1,0]) *
         #                 (self.dloc.min(axis=1) <= self.exons[0,1]))

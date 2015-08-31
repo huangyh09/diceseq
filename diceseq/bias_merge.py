@@ -5,17 +5,17 @@ import numpy as np
 from optparse import OptionParser
 from utils.bias_utils import BiasFile
 
-if __name__ == "__main__":
-    #part 0. parse command line options
+def main():
+   #part 0. parse command line options
     parser = OptionParser()
-    parser.add_option("--list_file", dest="list_file", default=None,
-        help="The list file containing all bise file name")
+    parser.add_option("--bias_list", dest="bias_list", default=None,
+        help="The list of bias file path, separated by ---")
     parser.add_option("--out_file", dest="out_file", default=None,
         help="The merged bias file for output.")
 
     #part 0.1. load the data
     (options, args) = parser.parse_args()
-    file_list = np.loadtxt(options.list_file, "str")
+    file_list = list_file.split("---")
     out_file  = options.out_file
 
     #part 1.1. copy a file as output file
@@ -46,4 +46,7 @@ if __name__ == "__main__":
             biasFile.seq3_unif[str(i)] += _biasFile.seq3_unif[str(i)] / N
 
     #part 2. save file
-    biasFile.save_file(out_file)
+    biasFile.save_file(out_file) 
+
+if __name__ == "__main__":
+    main()

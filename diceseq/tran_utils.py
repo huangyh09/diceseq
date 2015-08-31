@@ -5,7 +5,6 @@ import h5py
 import numpy as np
 from sam_utils import load_samfile, fetch_reads
 from bias_utils import FastaFile, BiasFile
-from gtf_utils import Gene, Transcript
 
 def normal_pdf(x, mu, sigma):
     RV = 1 / (sigma*np.sqrt(2*np.pi)) * np.exp(-1.0/2*((x-mu)/sigma)**2)
@@ -13,10 +12,10 @@ def normal_pdf(x, mu, sigma):
 
 class TranUnits:
     """docstring for TranUnits"""
-    def __init__(self, transcript):
-        self.chrom  = transcript.chrom
-        self.strand = transcript.strand
-        self.units  = transcript.exons
+    def __init__(self, chrom, strand, units):
+        self.chrom  = chrom
+        self.strand = strand
+        self.units  = np.sort(np.array(units).reshape(-1,2), axis=0)
         self.loci   = np.array([],"int")
         for i in range(self.units.shape[0]):
             _loci   = np.arange(self.units[i,0], self.units[i,1]+1)
@@ -325,54 +324,47 @@ class TranUnits:
                 self.proB[i] *= (self.probs[fL-1] / self.biasLen[fL-1])
 
 
-# class Transcript:
-#     def __init__(self,tran_id,chrom,strand,start,stop,exons):
-#         """a general purpose transcript object with the basic information and
-#         the sequencing reads.
-#         """
-#         self.tranID = tran_id
-#         self.chrom  = chrom
-#         self.strand = strand
-#         self.start  = start
-#         self.stop   = stop
-#         self.exons  = np.sort(np.array(exons).reshape(-1,2), axis=0)
-#         self.seglen = np.array([self.exons[0,1]-self.exons[0,0] + 1,
-#                                 self.exons[1,0]-self.exons[0,1] - 1,
-#                                 self.exons[1,1]-self.exons[1,0] + 1])
-#         if ["-","-1","0",0,-1].count(self.strand) > 0:
-#             self.seglen = self.seglen[::-1]
+class Transcript:
+    def __init__(self,tran_id,chrom,strand,start,stop,exons):
+        """a general purpose transcript object with the basic information and
+        the sequencing reads.
+        """
+        self.tranID = tran_id
+        self.chrom  = chrom
+        self.strand = strand
+        self.start  = start
+        self.stop   = stop
+        self.exons  = np.sort(np.array(exons).reshape(-1,2), axis=0)
+        self.seglen = np.array([self.exons[0,1]-self.exons[0,0] + 1,
+                                self.exons[1,0]-self.exons[0,1] - 1,
+                                self.exons[1,1]-self.exons[1,0] + 1])
+        if ["-","-1","0",0,-1].count(self.strand) > 0:
+            self.seglen = self.seglen[::-1]
 
 
-class TranSplice:
-    def __init__(self, Gene):
-        self.gene = Gene
-        self.chrom = Gene.chrom
-        self.start = Gene.start
-        self.stop = Gene.stop
-    def initial_unitSet(self, add_premRNA=False):
+class TranSplice(Transcript):
+    def initial_unitSet(self, add_premRNA=True):
         """set the initial units: pre-mRNA & mature mRNA"""
-        if add_premRNA == True:
-            self.gene.add_premRNA()
-        self.unitSet = []
-        for i in range(len(self.gene.trans)):
-            self.unitSet.append(TranUnits(self.gene.trans[i]))
-        # self.unitSet["u1"] = TranUnits(self.chrom, self.strand, 
-        #                               [self.start, self.stop])
-        # self.unitSet["u2"] = TranUnits(self.chrom, self.strand, self.exons)
+        self.unitSet = {}
+        self.unitSet["u1"] = TranUnits(self.chrom, self.strand, 
+                                      [self.start, self.stop])
+        self.unitSet["u2"] = TranUnits(self.chrom, self.strand, self.exons)
 
     def add_units(self, tranunits):
         """"add a new state, which is a TranUnits object."""
-        self.unitSet.append(tranunits)
+        key_last  = self.unitSet.keys()[-1]
+        key_new   = "u" + str(int(key_last[1:]) + 1)
+        self.unitSet[key_new] = tranunits
 
     def set_sequence(self, fastafile):
         """get the sequence from the genome sequence in FastaFile object"""
-        for i in len(self.unitSet):
-            self.unitSet[i].set_sequence(fastafile)
+        for key in self.unitSet.keys():
+            self.unitSet[key].set_sequence(fastafile)
 
     def set_bias(self, biasfile):
         """get the bias parameters from the BiasFile object"""
-        for i in len(self.unitSet):
-            self.unitSet[i].set_bias(biasfile)
+        for key in self.unitSet.keys():
+            self.unitSet[key].set_bias(biasfile)
         self.bias_in = True
 
     def set_reads(self, samfile, rm_duplicate=True, inner_only=True,
@@ -392,7 +384,7 @@ class TranSplice:
         in future. Then, we could remove the Rmat, and flen from ReadSet
         object, and set the Rmat and flen by the info of states."""
         rcnt  = [len(self.read1p), len(self.read1u), len(self.read2u)]
-        unit_cnt  = len(self.unitSet)
+        unit_cnt  = len(self.unitSet.keys())
         self.Rmat = np.ones((sum(rcnt), unit_cnt), "bool")
         self.flen = np.ones((sum(rcnt), unit_cnt), "float")
         self.proB = np.ones((sum(rcnt), unit_cnt), "float")
@@ -401,7 +393,7 @@ class TranSplice:
         self.efflen_unif = np.zeros(unit_cnt, "float")
 
         for i in range(unit_cnt):
-            _units = self.unitSet[i]
+            _units = self.unitSet[self.unitSet.keys()[i]]
             for j in range(3):
                 _idx = np.arange(sum(rcnt[:j]), sum(rcnt[:j+1]))
                 _reads1, _reads2 = [], []

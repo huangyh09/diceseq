@@ -15,13 +15,13 @@ def lognorm_pdf(x, mu, sigma):
 def norm_pdf(x, mu, sigma):
     return 1 / (sigma*np.sqrt(2*np.pi)) * np.exp(-1/2*((x-mu)/sigma)**2)
 
-if __name__ == "__main__":
+def main():
     #part 0. parse command line options
     parser = OptionParser()
     parser.add_option("--bias_file", "-b", dest="bias_file", default=None,
         help="The bias parameters file in hdf5 format")
-    parser.add_option("--out_dir", "-o", dest="out_dir",
-        default="./", help="The diretory of output figure.")
+    parser.add_option("--out_file", "-o", dest="out_file",
+        default="./sequence_position_bias.pdf", help="The name of the figure.")
 
     (options, args) = parser.parse_args()
     if options.bias_file == None:
@@ -29,7 +29,7 @@ if __name__ == "__main__":
         sys.exit(1)
     
     bias_file = options.bias_file
-    out_dir   = options.out_dir
+    out_file  = options.out_file
 
     # loading data
     f = h5py.File(bias_file, "r")
@@ -56,14 +56,6 @@ if __name__ == "__main__":
         print i, np.array(f["seq5_unif/"+str(i)]).sum(), np.array(f["seq5_bias/"+str(i)]).sum()
     f.close()
 
-    # # lognormal = np.array(f["lognormal"])
-    # print np.array(f["pos3_bias"]).sum(axis=1)
-    # print np.array(f["pos3_unif"]).sum(axis=1)
-    # print np.array(f["pos3_bias"]), np.array(f["pos5_bias"])
-    # print np.array(f["pos3_unif"]), np.array(f["pos5_unif"])
-    # # exit()
-    # print percentile
-
     pl.rcParams['pdf.fonttype'] = 42
     pl.rcParams['font.sans-serif'] = "Arial"
 
@@ -88,7 +80,7 @@ if __name__ == "__main__":
 
     #position bias
     fig = pl.figure()
-    pl.subplot(1,2,1)
+    pl.subplot(2,2,1)
     pl.plot(np.arange(20), np.ones(20), '--k')
     for i in range(5):
         if i == 4:
@@ -98,10 +90,10 @@ if __name__ == "__main__":
         pl.plot(np.arange(20), pos5_bias[i,:], linewidth=2.0, label=_label)
     pl.legend(loc="best")
     pl.xlabel("fractional transcription position")
-    pl.ylabel("bias weight")
+    pl.ylabel("position bias weight")
     pl.ylim(0,2)
 
-    pl.subplot(1,2,2)
+    pl.subplot(2,2,2)
     pl.plot(np.arange(20), np.ones(20), '--k')
     for i in range(5):
         if i == 4:
@@ -111,15 +103,15 @@ if __name__ == "__main__":
         pl.plot(np.arange(20), pos3_bias[i,:], linewidth=2.0, label= _label)
     pl.legend(loc="best")
     pl.xlabel("fractional transcription position")
-    pl.ylabel("bias weight")
+    pl.ylabel("position bias weight")
     pl.ylim(0,2)
-    fig.set_size_inches(12,4.5)
-    fig.savefig(out_dir + "/merged_position_bias.pdf",dpi=300, bbox_inches='tight')
+    # fig.set_size_inches(12,4.5)
+    # fig.savefig(out_dir + "/position_bias.pdf",dpi=300, bbox_inches='tight')
 
     #sequence bias
-    fig = pl.figure()
+    # fig = pl.figure()
     base = ["A", "T", "G", "C"]
-    pl.subplot(1,2,1)
+    pl.subplot(2,2,3)
     pl.plot(np.arange(21)-8, np.ones(21), '--k')
     pl.plot(np.zeros(2), np.array([0, 2.0]), '--k', linewidth=2.0)
     percent = np.zeros((4,21))
@@ -131,11 +123,11 @@ if __name__ == "__main__":
 
     pl.legend(loc="best")
     pl.xlabel("offset from 5' fragment end")
-    pl.ylabel("bias weight")
+    pl.ylabel("sequence bias weight")
     pl.xlim(-8,12)
     pl.ylim(0.5,2)
 
-    pl.subplot(1,2,2)
+    pl.subplot(2,2,4)
     pl.plot(np.arange(21)-12, np.ones(21), '--k')
     pl.plot(np.zeros(2), np.array([0, 2.0]), '--k', linewidth=2.0)
     percent = np.zeros((4,21))
@@ -146,9 +138,13 @@ if __name__ == "__main__":
         pl.plot(np.arange(21)-12, percent[i,:], ":o", linewidth=1.0, label="%s" %base[i])
     pl.legend(loc="best")
     pl.xlabel("offset from 3' fragment end")
-    pl.ylabel("bias weight")
+    pl.ylabel("sequence bias weight")
     pl.xlim(-12,8)
     pl.ylim(0.5,2)
-    fig.set_size_inches(12,4.5)
-    fig.savefig(out_dir + "/sequence_bias.pdf",dpi=300, bbox_inches='tight')
-    pl.show()
+    fig.set_size_inches(12,9.5)
+    fig.savefig(out_file, dpi=300, bbox_inches='tight')
+    #pl.show()
+
+if __name__ == "__main__":
+    main()
+    
