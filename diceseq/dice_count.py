@@ -1,10 +1,10 @@
 # This is a direct running file to calculate the specific counts of RNA
 # splicing, and currently it is mainly for intronic splicing, rather than
-# alternative splicing. There are 7 types for reads for an exon1-intron-
+# alternative splicing. There are 8 types for reads for an exon1-intron-
 # exon2 structure: (0) exon1, (1) exon1-intron boundary, (2) intron, (3) 
 # intron-exon2 boundary, (4) exon2, (5) exon1-exon2 junction, (6) exon1-
-# exon2 paired reads. In addition, it also provides the normalized counts
-# RPK (reads per kilo-base).
+# intron-exon2, (7) exon1-exon2 unsure. In addition, it also provides the
+# normalized counts RPK (reads per kilo-base).
 
 import sys
 import h5py
@@ -16,6 +16,8 @@ from utils.gtf_utils import load_annotation
 from utils.sam_utils import load_samfile, fetch_reads
 
 def main():
+    print "Welcome to dice-count!"
+
     #part 0. parse command line options
     parser = OptionParser()
     parser.add_option("--anno_file", "-a", dest="anno_file", default=None,
@@ -50,7 +52,6 @@ def main():
     parser.add_option("--biotype_only", dest="biotype_only", default=None,
         help="The only used biotype.")
 
-
     (options, args) = parser.parse_args()
     anno_source = options.anno_source
     if options.anno_file == None:
@@ -80,27 +81,25 @@ def main():
     biotype_only = options.biotype_only
     rm_duplicate = bool(options.rm_duplicate == "True")
     mismatch_max = int(options.mismatch_max)
-    
-    
-    print "Welcome to dice-count! %d potential genes are under counting." %len(gene_list)
 
-    cnt_name = ["exon1", "exon1_intron", "intron", "intron_exon2",
-                "exon2","exon1_exon2_junc", "exon1_exon2_vague"]
+    cnt_name = ["ex1", "ex1_int", "int", "int_ex2", "ex2", "ex1_ex2_junc",
+                "ex1_int_ex2", "ex1_ex2_vague"]
 
-    if total_reads is None: RPKM_symbol = "RPK"
-    else: RPKM_symbol = "RPKM"
+    if total_reads is None: RPKM_symbol = "_RPK"
+    else: RPKM_symbol = "_RPKM"
 
     fid = open(out_file, "w")
     if total_only != True:
         head_line = "gene_id\tgene_name\tbiotype"
         for i in range(len(cnt_name)):
-            head_line += "\t" + cnt_name[i] + "_cnt"
+            head_line += "\t" + cnt_name[i] + "_NUM"
         for i in range(len(cnt_name)):
             head_line += "\t" + cnt_name[i] + RPKM_symbol
     else:
         head_line = "gene_id\tgene_name\tbiotype\tcount\t" + RPKM_symbol
     fid.writelines(head_line + "\n")
     
+    g_cnt = 0
     for g in range(gene_list.shape[0]):
         i = np.where(np.array(anno["gene_id"]) == gene_list[g])[0][0]
 
@@ -115,11 +114,11 @@ def main():
         _start  = anno["gene_start"][i]
         _stop   = anno["gene_stop"][i]
 
-        reads = fetch_reads(samFile, _chrom, _start, _stop, rm_duplicate,
+        if total_only == True:
+            reads = fetch_reads(samFile, _chrom, _start, _stop, rm_duplicate,
                             inner_only, mapq_min, mismatch_max,
                             rlen_min, is_mated)
 
-        if total_only == True:
             count = len(reads["reads1u"]) + len(reads["reads2u"])
             count += len(reads["reads2"])
             if total_reads is None:
@@ -128,10 +127,13 @@ def main():
                 RPK   = count * 10**9 / (abs(_stop - _start + 1) * float(total_reads))
             count = [count]
             RPK   = [RPK]
+            g_cnt += 1
         elif (anno["genes"][i].tranNum > 0 and 
               anno["genes"][i].trans[0].exonNum == 2):
-        # _exons  = anno["exons"][i]
-        # _exons.shape[0] == 2:
+            reads = fetch_reads(samFile, _chrom, _start, _stop, rm_duplicate,
+                            inner_only, mapq_min, mismatch_max,
+                            rlen_min, is_mated)
+
             rdSet = ReadSet(reads["reads1u"])
             rdSet.get_loc_idx(anno["genes"][i].trans[0].exons, _strand)
             count = rdSet.loc_idx.sum(axis=0)
@@ -149,14 +151,19 @@ def main():
 
             if total_reads is not None:
                 RPK = RPK * 10**6 / float(total_reads)
+            g_cnt += 1
         else: continue
 
         a_line = anno["gene_id"][i] + "\t" + anno["gene_name"][i] + "\t"
         a_line += anno["biotype"][i] + "\t"
         a_line += "\t".join(["%d" %num for num in list(count)]) + "\t" 
-        a_line += "\t".join(["%.3f" %num for num in list(RPK)]) + "\n"
+        a_line += "\t".join(["%.2f" %num for num in list(RPK)]) + "\n"
         fid.writelines(a_line)
-    fid.close()    
+
+        if g_cnt % 100 == 0 and g_cnt != 0:
+            print "%d genes have been processed." %g_cnt
+    fid.close()
+    print "%d genes have been processed. Done!" %g_cnt
 
 if __name__ == "__main__":
     main()

@@ -15,7 +15,7 @@ class FastaFile:
             line = line.split("\n")[0]
             if len(self.ref) == 0 and line[0] != ">": continue
             if line.startswith(">"):
-                self.ref.append(line[1:])
+                self.ref.append(line[1:].split(" ")[0])
                 if seq == "": continue
                 self.seq.append(seq)
                 seq = ""

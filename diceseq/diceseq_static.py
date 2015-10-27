@@ -62,7 +62,6 @@ def main():
     ref_file  = options.ref_file
     out_file  = options.out_file
     bias_file = options.bias_file
-    anno_file = options.anno_file
     bias_mode = options.bias_mode
 
     if ref_file is None: fastaFile = None

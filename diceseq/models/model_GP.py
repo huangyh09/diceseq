@@ -62,6 +62,42 @@ def normal_pdf(x, mu, cov, log=True):
     if log == False: pdf = np.exp(pdf)
     return pdf
 
+def trun_normal_pdf(x, mu, sigma, a, b, log=True):
+    """
+    Calculate the probability density of Truncated Normal distribution.
+
+    Parameters
+    ----------
+    x : float
+        The variable for calculating the probability density.
+    mu : float
+        The mean of the Gaussian distribution.
+    sigma : float
+        The standard variance of the Gaussian distribution.
+    a : float
+        The lower bounder of the Truncated Normal distribution
+    b : float
+        The upper bounder of the Truncated Normal distribution
+    log : bool
+        If true, the return value is at log scale.
+
+    Returns
+    -------
+    pdf : float
+        The probability density of x.
+    """
+    x = x - mu
+    a = a - mu
+    b = b - mu
+    
+    pdf = np.exp(-0.5 * (x/sigma)**2) / (sigma * np.sqrt(2 * np.pi))
+    cdf_a = (1 + np.math.erf(a / sigma / np.sqrt(2))) / 2.0
+    cdf_b = (1 + np.math.erf(b / sigma / np.sqrt(2))) / 2.0
+    
+    pdf = pdf / abs(cdf_b - cdf_a)
+    if log == True: pdf = np.log(pdf)
+    return pdf
+
 def GP_K(X, theta):
     """
     Covariance of Gaussian process generator.
@@ -83,7 +119,7 @@ def GP_K(X, theta):
     K = np.zeros((N, N))
     for i in range(N):
         for j in range(N):
-            K[i,j] = theta[0] * np.exp(-0.5/theta[1]*(X[i]-X[j])**2)
+            K[i,j] = theta[0] * np.exp(-0.5 * (X[i]-X[j])**2 / theta[1])
     return K
 
 def Geweke_Z(X, first=0.1, last=0.5):
@@ -111,103 +147,68 @@ def Geweke_Z(X, first=0.1, last=0.5):
     N = X.shape[0]
     A = X[:first*N]
     B = X[last*N:]
-    Z = abs(A.mean() - B.mean()) / np.sqrt(np.var(A) + np.var(B))
+    if np.sqrt(np.var(A) + np.var(B)) == 0: 
+        Z = None
+    else:
+        Z = abs(A.mean() - B.mean()) / np.sqrt(np.var(A) + np.var(B))
     return Z
 
-def Psi_junction(R_mat, len_juncts):
+
+def Psi_GP_MH(R_mat, len_isos, prob_isos, X=None, Ymean=None, var=0.05, 
+              theta1=3.0, theta2=None, M=20000, initial=1000, gap=500, 
+              randomS=None, theta2_std=1.0, theta2_low=0.01, theta2_up=100):
     """
-    Calculate the proportion of each isoforms with junction reads only
-
-    Parameters
-    ----------
-    R_mat : 2D matrix, (N, K)
-        Parameters; N and K are the number of reads and isoforms, respectively.
-    len_juncts : 1D array, (K,)
-        Parameters; the used junction length of each isoforms
-    Returns
-    -------
-    RV : 1D array, (K,)
-    The the proportion of each isoforms
-    """
-    N, K = R_mat.shape
-    if R_mat.shape[1] != len_juncts.shape[0]:
-        print "The number of isoforms in the reads and junction lengths are different!"
-        return [None] * K
-    if np.sum(R_mat) == 0:
-        print "No junction reads!"
-        return [None] * K
-    Dens = np.sum(R_mat, axis=0) / len_juncts.astype("float")
-    RV = Dens / np.sum(Dens)
-    return RV
-
-def Psi_analytic(R_mat, len_isos):
-    """
-    Calculate the proportion of each isoforms with all reads
-
-    Parameters
-    ----------
-    R_mat : 2D matrix, (N, K)
-        Parameters; N and K are the number of reads and isoforms, respectively.
-    len_isos : 1D array, (K,)
-        Parameters; the used length of each isoforms
-    Returns
-    -------
-    RV : 1D array, (K,)
-    The the proportion of each isoforms
-    """
-    # transfer the parameters
-    p_p, p_m = 1.0/len_isos
-
-    # counting the reads of each type 
-    Nc = np.sum(R_mat[:,0] * R_mat[:,1])
-    Np = np.sum(R_mat[:,0] * (R_mat[:,1]==False))
-    Nm = np.sum(R_mat[:,1] * (R_mat[:,0]==False))
-
-    # The coefficients of a quadratic equation
-    A = (-Np-Nm-Nc) * (p_p-p_m)
-    B = Np*(p_p - 2*p_m) - Nm*p_m + Nc*(p_p - p_m)
-    C = Np * p_m
-
-    # # The analytical solution the quadratic equation on psi_freq
-    Psi_freq = np.zeros(2)
-    Psi_freq[0] = (-B - np.sqrt(B**2-4*A*C)) / (2.0*A)
-    Psi_freq[1] = 1 - Psi_freq[0]
-    RV = Psi_freq*len_isos[::-1] / np.sum(Psi_freq*len_isos[::-1])
-    return RV
-
-def Psi_GP_MH(R_mat, len_isos, prob_isos, X, cov_Y, sca_theta, M=100000, start=3000, gap=1000):
-    """
-    Estimate the proportion of K isoforms at T time points with all reads 
+    Estimate the proportion of C isoforms at T time points with all reads 
     by MCMC samplling (MH algorithm) combined with a GP prior.
 
     Parameters
     ----------
     R_mat : list of 2-D array_like, of length T
-        A set of reads identities of belonging to K isoforms
+        A set of reads identities of belonging to C isoforms
     len_isos : list of 2-D array_like, of length T
-        A set of effective length of K isoforms
+        A set of effective length of C isoforms
     prob_isos : list of 2-D array_like, of length T
         A set of probablity for isoform specific reads
     X : 1-D array_like, (T, )
         An array of time points.
-    cov_Y : 1-D array_like, (K, )
-        An array of jump variance of each dimension of Y.
-    sca_theta : 1-D array_like, (2, )
-        An array of jump scale of each parameters of GP theta
+    Ymean : 2-D array_like, (C, T)
+        The means for Y.
+    var : float
+        The average variation of all y.
+    theta : 1-D array_like or list, (2, )
+        The fixed hyper-parameter theta1, and initial theta2, default=[3.0,5.0]
+    theta2_std : float
+        The jump std of hyper-parameter theta2 for each dimension, default=1.0
     M : int
         the maximum iterations of in MCMC sampler, default=100000
-    start : int
+    initial : int
         the minmum iterations of in MCMC sampler, default=3000
     gap : int
         the gap iterations of in MCMC sampler, default=1000
 
     Returns
     -------
-    RV : 3-D array_like, (M, K, T)
-        The the proposed M proportion of K isoforms of T time points
+    Psi_all : 3-D array_like, (m, C, T)
+        The the proposed m proportion of C isoforms of T time points
+     :
+    Y_all : 3-D array_like, (m, C, T)
+        The the proposed m latent y for C isoforms of T time points
+    theta_all : 3-D array_like, (m, C-1, 2)
+        The the proposed m hyper-parameters for C-1 isoforms
+    Pro_all : 1-D array_like, (m,)
+        The the probability for accepted proposals
+    Lik_all : 1-D array_like, (m,)
+        The the probability for accepted proposals
+    cnt : int
+        The number of acceptances
+    m : int
+        The number of iterations
     """
     T = len(len_isos)
     C = len(len_isos[0])
+    if X is None: X = np.arange(T)
+    if Ymean is None: Ymean = np.zeros((C,T))
+    if randomS is not None: np.random.seed(randomS)
     for t in range(T):
         idx = (len_isos[t] != len_isos[t])
         len_isos[t][idx] = 0.0
@@ -224,109 +225,113 @@ def Psi_GP_MH(R_mat, len_isos, prob_isos, X, cov_Y, sca_theta, M=100000, start=3
         R_mat[t] = R_mat[t][idx,:]
         prob_isos[t] = prob_isos[t][idx,:]
 
-    # MCMC random initializations
-    theta_now = np.zeros((C, 2))
-    Y_now = np.zeros((C, T))
-    for c in range(C):
-        theta_now[c,0] = np.random.gamma(1.0/sca_theta[0], sca_theta[0])
-        theta_now[c,1] = np.random.gamma(1.0/sca_theta[1], sca_theta[1])
-        Y_now[c,:] = np.random.normal(0, cov_Y[c], T)
+    # step 0: MCMC fixed initializations
+    theta_now = np.zeros((C-1, 2))
+    theta_now[:,0] = theta1
+    theta_now[:,1] = theta2
+    if theta2 is not None: theta_now[:,1] = theta2
+    else: theta_now[:,1] = 0.75
+    Y_now = Ymean
+
     psi_now = np.zeros((C, T))
     fsi_now = np.zeros((C, T))
     for t in range(T):
         psi_now[:,t] = np.exp(Y_now[:,t]) / np.sum(np.exp(Y_now[:,t]))
-        fsi_now[:,t] = len_isos[t]*psi_now[:,t] /  np.sum(len_isos[t]*psi_now[:,t])
+        fsi_now[:,t] = len_isos[t]*psi_now[:,t]/np.sum(len_isos[t]*psi_now[:,t])
     
-    P_now = 0
-    cov_now = np.zeros((T, T, C))
-    for c in range(C):
+    P_now, L_now = 0, 0
+    cov_now = np.zeros((T, T, C-1))
+    for c in range(C-1):
         cov_now[:,:,c] = GP_K(X, theta_now[c,:])
-        P_now += normal_pdf(Y_now[c,:], np.zeros(T), cov_now[:,:,c]) #this may be a problem, try to set priors
+        P_now += normal_pdf(Y_now[c,:], Ymean[c,:], cov_now[:,:,c])
+        
     for t in range(T):
         P_now += np.log(np.dot(R_mat[t]*prob_isos[t], fsi_now[:, t])).sum()
+        L_now += np.log(np.dot(R_mat[t]*prob_isos[t], fsi_now[:, t])).sum()
         
     # MCMC running
-    theta_try = np.zeros((C, 2))
-    theta_all = np.zeros((M, C, 2))
+    theta_try = np.zeros((C-1, 2))
+    theta_all = np.zeros((M, C-1, 2))
     Y_try   = np.zeros((C, T))
     Y_all   = np.zeros((M, C, T))
     psi_try = np.zeros((C, T))
     fsi_try = np.zeros((C, T))
     Psi_all = np.zeros((M, C, T))
-    cov_try = np.zeros((T, T, C))
+    cov_try = np.zeros((T, T, C-1))
     
     cnt = 0
     Pro_all = np.zeros(M)
+    Lik_all = np.zeros(M)
     for m in range(M):
-        P_try, Q_now, Q_try = 0, 0, 0
+        P_try, L_try, Q_now, Q_try = 0, 0, 0, 0
+        
         # step 1: propose a value
-        for c in range(C):
-            for j in range(2):
-                theta_try[c,j] = np.random.gamma(theta_now[c,j]/sca_theta[j], sca_theta[j]) # make sure this is good
-                while theta_try[c,j] == 0:
-                    theta_try[c,j] = np.random.gamma(theta_now[c,j]/sca_theta[j], sca_theta[j]) # make sure this is good
-                # the two important paramters jump in the same way. Is it good?
-                Q_now += gamma_pdf(theta_now[c,j], theta_try[c,j]/sca_theta[j], sca_theta[j])
-                Q_try += gamma_pdf(theta_try[c,j], theta_now[c,j]/sca_theta[j], sca_theta[j])
-        
-        for t in range(T):
-            for c in range(C):
-                Y_try[c,t] = np.random.normal(Y_now[c,t], cov_Y[c]) # the jump at different time point is the same (good?)
-                Q_now += normal_pdf(Y_now[c,t], Y_try[c,t], cov_Y[c])
-                Q_try += normal_pdf(Y_try[c,t], Y_now[c,t], cov_Y[c])
-            psi_try[:,t] = np.exp(Y_try[:,t]) / np.sum(np.exp(Y_try[:,t]))
-            fsi_try[:,t] = len_isos[t]*psi_try[:,t] /  np.sum(len_isos[t]*psi_try[:,t])
-
-        for c in range(C):
+        for c in range(C-1):
+            theta_try[c,0] = theta1
+            if theta2 is not None: theta_try[c,1] = theta2
+            else:
+                theta_try[c,1] = np.random.normal(theta_now[c,1], theta2_std)
+                while theta_try[c,1]<theta2_low or theta_try[c,1]>theta2_up:
+                    theta_try[c,1] = np.random.normal(theta_now[c,1],theta2_std)
             cov_try[:,:,c] = GP_K(X, theta_try[c,:])
-            P_try += normal_pdf(Y_try[c,:], np.zeros(T), cov_try[:,:,c])
+            Y_try[c,:] = np.random.multivariate_normal(Y_now[c,:], 
+                cov_try[:,:,c]/theta1*var*5/T)
+                        
+            P_try += normal_pdf(Y_try[c,:], Ymean[c,:], cov_try[:,:,c])
+            Q_now += normal_pdf(Y_now[c,:], Y_try[c,:], 
+                cov_try[:,:,c]/theta1*var*5/T)
+            Q_try += normal_pdf(Y_try[c,:], Y_now[c,:], 
+                cov_now[:,:,c]/theta1*var*5/T)
+            Q_now += trun_normal_pdf(theta_now[c,1], theta_try[c,1], 
+                theta2_std, theta2_low, theta2_up)
+            Q_try += trun_normal_pdf(theta_try[c,1], theta_now[c,1], 
+                theta2_std, theta2_low, theta2_up)
+            
         for t in range(T):
+            psi_try[:,t] = np.exp(Y_try[:,t]) / np.sum(np.exp(Y_try[:,t]))
+            fsi_try[:,t] = (len_isos[t]*psi_try[:,t] / 
+                np.sum(len_isos[t]*psi_try[:,t]))
             P_try += np.log(np.dot(R_mat[t]*prob_isos[t], fsi_try[:,t])).sum()
+            L_try += np.log(np.dot(R_mat[t]*prob_isos[t], fsi_try[:,t])).sum()
         
-        # step 2: calculate the MH ratio and decide to accapt or reject
-        alpha = min(np.exp(P_try+Q_now-P_now-Q_try), 1)
-        if alpha is None: print "alpha is none!"        
+        # step 2: calculate the MH ratio and accept or reject the proposal
+        alpha = np.exp(min(P_try+Q_now-P_now-Q_try, 0))
+        if alpha is None:
+            print "alpha is none!"
         elif np.random.rand(1) < alpha:
+            #print alpha
             cnt += 1
-            Y_now = Y_try + 0.0
             P_now = P_try + 0.0
+            L_now = L_try + 0.0
+            Y_now = Y_try + 0.0
             cov_now = cov_try + 0.0
-            theta_now = theta_try + 0.0
             psi_now = psi_try + 0.0
             fsi_now = fsi_try + 0.0
+            theta_now = theta_try + 0.0            
 
-        Pro_all[m] = P_now
-        Y_all[m,:,:] = Y_now
+        Pro_all[m]     = P_now
+        Lik_all[m]     = L_now
+        Y_all[m,:,:]   = Y_now
         Psi_all[m,:,:] = psi_now
-        theta_all[m,:,:] = theta_now
+        theta_all[m,:] = theta_now
         
         #step 3. convergence diagnostics
-        if m >= start and m % gap == 0:
+        if m >= initial and m % gap == 0:
             conv = 1
-            for c in range(C):
+            for c in range(C-1):
                 for t in range(T):
-                    if Geweke_Z(Psi_all[:m,c,t]) > 2: 
+                    Z = Geweke_Z(Y_all[:m,c,t])
+                    if Z is None or Z > 2: 
                         conv = 0
                         break
+                Z = Geweke_Z(theta_all[:m,c,1])
+                if Z is None or Z > 2: conv == 0
                 if conv == 0: break
             if conv == 1:
-                Psi_all, Pro_all = Psi_all[:m,:,:], Pro_all[:m,]
-                break   
-
-        # if m >= start and m % gap == 0:
-        #     conv = 1
-        #     for c in range(C):
-        #         if Geweke_Z(theta_all[:m,c,0]) > 2: conv = 0
-        #         if Geweke_Z(theta_all[:m,c,1]) > 2: conv = 0
-        #         if conv == 0: break
-        #         for t in range(T):
-        #             if Geweke_Z(Y_all[:m,c,t]) > 2: 
-        #                 conv = 0
-        #                 break
-        #     if conv == 1:
-        #         Psi_all, Pro_all = Psi_all[:m,:,:], Pro_all[:m,]
-        #         break    
-            
-    print "The numbers of iterations and acceptances are %d and %d." %(m, cnt)
-    return Psi_all
-
+                Pro_all = Pro_all[:m,]
+                Lik_all = Lik_all[:m,]
+                Y_all   = Y_all[:m,:,:]
+                Psi_all = Psi_all[:m,:,:]
+                theta_all = theta_all[:m,:]
+                break
+    return Psi_all, Y_all, theta_all, Pro_all, Lik_all, cnt, m

@@ -59,9 +59,18 @@ class Gene:
         self.trans.append(transcript)
         self.tranNum += 1
 
+    def get_gene_info(self):
+        RV = [self.geneID, self.geneName, self.chrom, self.strand, self.start,
+              self.stop, self.biotype]
+        _trans = []
+        for t in self.trans:
+            _trans.append(t.tranID)
+        RV.append(",".join(_trans))
+        return RV
+
     def add_premRNA(self):
         _tran = Transcript(self.chrom, self.strand, self.start, self.stop, 
-                           self.geneID, self.geneName, self.biotype)
+                           self.geneID+".p", self.geneName, self.biotype)
         _tran.add_exon(self.chrom, self.strand, self.start, self.stop)
         self.trans.append(_tran)
         self.tranNum += 1
@@ -71,6 +80,11 @@ class Gene:
         for _tran in self.trans:
             exonMax = max(exonMax, _tran.exonNum)
         return exonMax
+
+    def gene_ends_update(self):
+        for t in self.trans:
+            self.start = min(self.start, np.min(t.exons))
+            self.stop  = max(self.stop,  np.max(t.exons))
 
 def ensembl_gtf(anno_in):
     genes = []
@@ -89,13 +103,13 @@ def ensembl_gtf(anno_in):
             _gene_name, _gene_id, _biotype = "*", "*", "*"
             idx = a_line[8].find("gene_name")
             if idx > -1:
-                _gene_name = a_line[8][idx:].split('"')[1]
+                _gene_name = a_line[8][idx:].split('"')[1].split("\n")[0]
             idx  = a_line[8].find("gene_id")
             if idx > -1:
-                _gene_id = a_line[8][idx:].split('"')[1]
+                _gene_id = a_line[8][idx:].split('"')[1].split("\n")[0]
             idx = a_line[8].find("gene_biotype")
             if idx > -1:
-                _biotype = a_line[8][idx:].split('"')[1]
+                _biotype = a_line[8][idx:].split('"')[1].split("\n")[0]
 
             _gene = Gene(a_line[0], a_line[6], a_line[3], a_line[4],
                          _gene_id, _gene_name, _biotype)
@@ -105,10 +119,10 @@ def ensembl_gtf(anno_in):
 
             idx = a_line[8].find("transcript_name")
             if idx > -1:
-                _tran_name = a_line[8][idx:].split('"')[1]
+                _tran_name = a_line[8][idx:].split('"')[1].split("\n")[0]
             idx = a_line[8].find("transcript_id")
             if idx > -1:
-                _tran_id = a_line[8][idx:].split('"')[1]
+                _tran_id = a_line[8][idx:].split('"')[1].split("\n")[0]
             idx = a_line[8].find("gene_biotype")
             if idx > -1:
                 _biotype = a_line[8][idx:].split('"')[1]
@@ -123,6 +137,7 @@ def ensembl_gtf(anno_in):
         elif a_line[2] == "exon":
             if _gene is not None and len(_gene.trans) > 0:
                 _gene.trans[-1].add_exon(a_line[0],a_line[6],a_line[3],a_line[4])
+                # _gene.gene_ends_update()
             else:
                 print "Gene or transcript is not ready before exon."
 
@@ -147,25 +162,26 @@ def sander_gtf(anno_in):
             if len(genes) > 0 and _gene_id == genes[-1].trans[-1].tranID :
                 genes[-1].trans[-1].add_exon(a_line[0], a_line[6],
                                              a_line[3], a_line[4])
+                genes[-1].gene_ends_update()
             else:
                 _biotype = a_line[1]
                 _gene_name, _gene_id = "*", "*"
                 idx = a_line[8].find("gene_name")
                 if idx > -1:
-                    _gene_name = a_line[8][idx:].split('"')[1]
+                    _gene_name = a_line[8][idx:].split('"')[1].split("\n")[0]
                 idx  = a_line[8].find("gene_id")
                 if idx > -1:
-                    _gene_id = a_line[8][idx:].split('"')[1]
+                    _gene_id = a_line[8][idx:].split('"')[1].split("\n")[0]
                 _gene = Gene(a_line[0], a_line[6], a_line[3], a_line[4],
                              _gene_id, _gene_name, _biotype)
 
                 _tran_name, _tran_id = "*", "*"
                 idx = a_line[8].find("transcript_name")
                 if idx > -1:
-                    _tran_name = a_line[8][idx:].split('"')[1]
+                    _tran_name = a_line[8][idx:].split('"')[1].split("\n")[0]
                 idx = a_line[8].find("transcript_id")
                 if idx > -1:
-                    _tran_id = a_line[8][idx:].split('"')[1]
+                    _tran_id = a_line[8][idx:].split('"')[1].split("\n")[0]
                 idx = a_line[8].find("gene_biotype")
                 _tran = Transcript(a_line[0], a_line[6], a_line[3], a_line[4],
                                    _tran_id, _tran_name, _biotype)
@@ -200,10 +216,10 @@ def sgd_gtf(anno_in):
             _gene_name, _gene_id = "*", "*"
             idx = a_line[8].find("Name")
             if idx > -1:
-                _gene_name = a_line[8][idx:].split(";")[0].split("=")[1]
+                _gene_name = a_line[8][idx:].split(";")[0].split("=")[1].split("\n")[0]
             idx  = a_line[8].find("ID")
             if idx > -1:
-                _gene_id = a_line[8][idx:].split(";")[0].split("=")[1]
+                _gene_id = a_line[8][idx:].split(";")[0].split("=")[1].split("\n")[0]
             _gene = Gene(a_line[0], a_line[6], a_line[3], a_line[4],
                          _gene_id, _gene_name, _biotype)
 
@@ -230,6 +246,7 @@ def sgd_gtf(anno_in):
         elif a_line[2] == "CDS" or a_line[2] == "noncoding_exon" :
             if _gene is not None and len(_gene.trans) > 0:
                 _gene.trans[-1].add_exon(a_line[0],a_line[6],a_line[3],a_line[4])
+                # _gene.gene_ends_update()
             else:
                 print "Gene or transcript is not ready before exon."
 
@@ -254,21 +271,22 @@ def miso_gtf(anno_in):
             _gene_name, _gene_id, _biotype = "*", "*", "*"
             idx = a_line[8].find("Name")
             if idx > -1:
-                _gene_name = a_line[8][idx:].split(";")[0].split("=")[1]
-            idx  = a_line[8].find("gid")
+                _gene_name = a_line[8][idx:].split(";")[0].split("=")[1].split("\n")[0]
+            idx  = a_line[8].find("ID=")
             if idx > -1:
-                _gene_id = a_line[8][idx:].split(";")[0].split("=")[1]
+                _gene_id = a_line[8][idx:].split(";")[0].split("=")[1].split("\n")[0]
             _gene = Gene(a_line[0], a_line[6], a_line[3], a_line[4],
                          _gene_id, _gene_name, _biotype)
 
         elif a_line[2] == "mRNA":
             _tran_name, _tran_id, _biotype = "*", "*", "*"
-            idx = a_line[8].find("gid")
+            idx = a_line[8].find("ID=")
             if idx > -1:
-                _tran_name = a_line[8][idx:].split(";")[0].split("=")[1]         
-            idx = a_line[8].find("ID")
+                _tran_name = a_line[8][idx:].split(";")[0].split("=")[1].split("\n")[0]       
+            idx = a_line[8].find("ID=")
             if idx > -1:
-                _tran_id = a_line[8][idx:].split(";")[0].split("=")[1]
+                # print a_line[8][idx:]
+                _tran_id = a_line[8][idx:].split(";")[0].split("=")[1].split("\n")[0]
             _tran = Transcript(a_line[0], a_line[6], a_line[3], a_line[4],
                                _tran_id, _tran_name, _biotype)
 
@@ -280,6 +298,7 @@ def miso_gtf(anno_in):
         elif a_line[2] == "exon":
             if _gene is not None and len(_gene.trans) > 0:
                 _gene.trans[-1].add_exon(a_line[0],a_line[6],a_line[3],a_line[4])
+                # _gene.gene_ends_update()
             else:
                 print "Gene or transcript is not ready before exon."
     

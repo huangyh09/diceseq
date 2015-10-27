@@ -24,7 +24,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.0.1',
+    version='0.1.0',
 
     description='DICEseq',
     long_description=long_description,
@@ -49,10 +49,12 @@ setup(
     entry_points={
           'console_scripts': [
               'diceseq = diceseq.diceseq:main',
+              'dice-static = diceseq.diceseq_static:main',
               'dice-count = diceseq.dice_count:main',
               'dice-simulate = diceseq.read_simulate:main',
               'dice-bias = diceseq.bias_estimate:main',
               'dice-biasplot = diceseq.bias_plot:main',
+              'dice-biasmerge = diceseq.bias_merge:main',
               ],
           }, 
 

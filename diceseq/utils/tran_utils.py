@@ -42,7 +42,7 @@ class TranUnits:
         position / both; make sure setting quence before using sequence
         or both modes"""
         if biasFile is None:
-            print "This is a Null bias file."
+            # print "This is a Null bias file."
             return
             
         self.bias_method = mode
@@ -349,6 +349,12 @@ class TranSplice:
         self.chrom = Gene.chrom
         self.start = Gene.start
         self.stop = Gene.stop
+        self.initial_unitSet()
+
+        self.read1p = []
+        self.read2p = []
+        self.read1u = []
+        self.read2u = []
     def initial_unitSet(self, add_premRNA=False):
         """set the initial units: pre-mRNA & mature mRNA"""
         if add_premRNA == True:
@@ -382,10 +388,10 @@ class TranSplice:
                             rm_duplicate, inner_only, mapq_min, 
                             mismatch_max, rlen_min,   is_mated)
 
-        self.read1p = reads["reads1"]
-        self.read2p = reads["reads2"]
-        self.read1u = reads["reads1u"]
-        self.read2u = reads["reads2u"]
+        self.read1p += reads["reads1"]
+        self.read2p += reads["reads2"]
+        self.read1u += reads["reads1u"]
+        self.read2u += reads["reads2u"]
 
     def get_ready(self, bias_mode="both"):
         """get the location index of the transcript, need implimentation
