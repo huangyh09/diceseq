@@ -1,11 +1,19 @@
-# DICEseq: Dynamic RNA splicing estimator via sequencing data
+# DICEseq: Dynamic Isoform spliCing Estimator via sequencing data
 
 ## About DICEseq
-DICEseq is a Dynamic RNA splicing estimator via sequencing data. It could quantify alternative splicing isoform or RNA splicing ratio, i.e., proportion of mature mRNA from pre-mRNA. More generally, the program is designed object-oriented for transcripts. Thus, it supports arbitrary transcript, with customised the coordinates of exons and introns. It also supports addition and removal of specific transcripts.
+Different from most methods that quantifies the splicing isoforms statically, DICEseq estimates the dynamics of isoform proportions jointly from time series RNA-seq experiments. DICEseq is a Bayesian method based on a mixture model whose mixing proportions represent isoform ratios; however, DICEseq incorporates the correlations induced by the temporal structure by coupling the isoform proportions at different times through a latent Gaussian process (GP).
 
-This program also provides customised reads counting, especially boundary/junction reads, normalisation, reads simulation, sequencing bias correction, etc.
+DICEseq provides following functions:
 
-Currently, the program for static quantification has been tested on the simulated and real data and showed good performance, but the dynamical model is still in preparation. 
+1. Estimate the isoform proportions jointly. The prior is GPs followed by a softmax functions transform.
+2. Estimate the isoform proportions separately. It is almost the same as [MISO](http://genes.mit.edu/burgelab/miso/), but with different prior distribution.
+3. Calculate the Bayes factor to detect the differential dynamics of splicing profile.
+4. Get the total counts of each gene.
+5. Get the specific counts, e.g., junction reads, for genes with exactly one intron.
+6. Generating simulation reads with given isoform proportions and sequencing coverage.
+7. Reads sequence and position bias correction and plot (under study)
+
+In addition to run the DICEseq functions from standard command line, DICEseq also provides interface of a set of functions and attributes as an object-oriented python module. Therefore, you could, for example customize the coordinates of exons and introns, add and remove of specific transcripts.
 
 ## More information
-See the homepage of DICEseq [here](http://diceseq.sourceforge.net), and documentation on how to install, how to use etc [here](http://diceseq.readthedocs.org).
+See the [homepage](http://diceseq.sourceforge.net) of DICEseq for all information links, and the [documentation](http://diceseq.readthedocs.org) on how to install, use, etc.
