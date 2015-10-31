@@ -2,9 +2,22 @@
 Release notes
 =============
 
+
+Release 0.1.0 (26/10/2015)
+==========================
+* probabilistic models
+    * finished dynamic model: estimate jointly
+
+* dirrect running file
+    * diceseq: support separated and joint estimates
+    * dice-static: not suggested anymore.
+
+* bug fixed
+    * reads simulation
+
+
 Release 0.0.1 (01/09/2015)
 ==========================
-
 * first version of DICEseq
 * utils objects or functions
     * FastaFile: read and write fasta file

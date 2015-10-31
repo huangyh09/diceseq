@@ -1,15 +1,13 @@
-DICEseq: Dynamic RNA splicing estimator via sequencing data
-===========================================================
+DICEseq: Dynamic Isoform spliCing estimator via sequencing data
+===============================================================
 
 :Author: Yuanhua Huang
-:Version: 0.0.1
-:Last viewed: 01/09/2015
+:Version: 0.1.0
+:Last viewed: Octber 31, 2015
 
-DICEseq is a Dynamic RNA splicing estimator via sequencing data. It could quantify alternative splicing isoform or RNA splicing ratio, i.e., proportion of mature mRNA from pre-mRNA. More generally, the program is designed object-oriented for transcripts. Thus, it supports arbitrary transcript, with customized the coordinates of exons and introns. It also supports addition and removal of specific transcripts.
+Different from most methods that quantifies the splicing isoforms statically, DICEseq estimates the dynamics of isoform proportions jointly from time series RNA-seq experiments. DICEseq is a Bayesian method based on a mixture model whose mixing proportions represent isoform ratios; however, DICEseq incorporates the correlations induced by the temporal structure by coupling the isoform proportions at different times through a latent Gaussian process (GP).
 
-This program also provides customized reads counting, especially boundary/junction reads, normalization, reads simulation, sequencing bias correction, etc.
-
-Currently, the program for static quantification has been tested on the simulated and real data and showed good performance, but the dynamical model is still in preparation. 
+DICEseq offers a set of functions to run from the standard command line, and also provides interface of more functions and attributes as an object-oriented python module. Therefore, you could, for example customize the coordinates of exons and introns, add and remove of specific transcripts.
 
 Contents
 --------
@@ -28,7 +26,7 @@ Contents
 References
 ----------
 
-Coming soon.
+Yuanhua Huang and Guido Sanguinetti.\ **Statistical modeling of isoform splicing dynamics from RNA-seq time series data** \. [(under review)]()
 
 .. seealso::
 

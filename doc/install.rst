@@ -36,7 +36,7 @@ Quick start
 
   ::
 
-    diceseq --anno_file=anno_file.gtf --sam_file=sam_file.bam --out_file=out_file.txt  --bias_file=bias_file.hdf5 --ref_file=ref_file.fasta
+    diceseq --anno_file=anno_file.gtf --sam_file=sam_file.bam --out_file=out_file
 
 * Run dice-count for reads counts:
 
@@ -44,5 +44,5 @@ Quick start
 
     dice-count --anno_file=anno_file.gtf --sam_file=sam_file.bam --out_file=out_file.txt
 
-You could also see the file demo.sh in the source code package. And for more information, see the detailed usages page.
+You could also see the file demo.sh in the source code package. And for more options, see the detailed usages page.
 
