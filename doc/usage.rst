@@ -57,6 +57,7 @@ This command allows you to estimate isoform proportions jointly (or separately i
 ::
 
   my_sam_list=t1_rep1.sorted.bam,t1_rep2.sorted.bam---t1_rep1.sorted.bam---t3_rep1.sorted.bam
+
   diceseq --anno_file=anno_file.gtf --sam_list=my_sam_list --out_file=out_file
 
 There are more parameters for setting:
@@ -76,6 +77,12 @@ There are more parameters for setting:
 * ``--is_twice`` (default=True): Whether estimate the rates twice with a quick check first. It is useful for ensuring the 30-50% acceptances in MH sampler.
 
 Suggestions on setting hyperparameter :math:`\theta_2`: if you want :math:`\theta_2` cover :math:`\eta \in (0,1)` of duration, then you should set :math:`\theta_2=(\eta(t_{max}-t_{min}))^2`. The default is :math:`\eta = 1/3`.
+
+theta_2 setting (with covering duration as \eta, default: \eta=1/3): 
+
+  .. math::
+
+    \theta_2=(\eta(t_{max}-t_{min}))^2
 
 
 

@@ -7,8 +7,10 @@ Installation
 
 * Required packages in python:
     * `h5py`, `scipy`, `numpy`, `matplotlib`, `pysam`
-    * we suggest using Anaconda distribute (http://continuum.io/downloads), which includes most packages but `pysam`
+    * we suggest using Anaconda_ distribute, which includes most packages but `pysam`
     * you could install `pysam` by pypi in terminal, but you may need to re-start of the terminal for using it.
+
+    .. _Anaconda: http://continuum.io/downloads
 
     ::
 
@@ -32,7 +34,7 @@ Installation
 Quick start with demo
 =====================
 
-The demo file demo.sh and also the data are included in github
+The demo file demo.sh `demo.sh <https://github.com/huangyh09/diceseq/blob/master/demo.sh>`_ and also the `data <https://github.com/huangyh09/diceseq/tree/master/data>`_ are included in `github <https://github.com/huangyh09/diceseq>`_
 
 * Run diceseq for isoform proportions:
 
@@ -42,8 +44,6 @@ The demo file demo.sh and also the data are included in github
 
       anno_file=data/anno/yeast_RNA_splicing.gtf
       sam_dir=data/sam
-
-      # separated model
       out_file=data/out/t1
       sam_list=$sam_dir/reads_t1.sorted.bam
       diceseq --anno_file=$anno_file --add_premRNA=True --sam_list=$sam_list --out_file=$out_file
