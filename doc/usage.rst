@@ -8,41 +8,41 @@ This page contains the details on how to use the functions that DICEseq provides
 
 
 
-preprocess (annotation and alignment)
-=====================================
+Preprocess
+==========
 
 .. _format:
 
 Annotation format
 -----------------
 
-The basic format is gtf_. In order to simply process the gtf file, we used a few formats of key words. The default is similar as Ensembl format. Namely, the third column goes ``gene`` --> ``transcript`` --> ``exon``, and the attributes includes ``gene_id``, ``gene_name``, ect. as follows
+The basic format is gtf_. In order to simply process the gtf file, we used a few formats of key words. The default is similar as Ensembl format. Namely, the order is ``gene`` --> ``transcript 1`` --> ``exon ...`` --> ``transcript 2`` --> ``exon ...`` , and the attributes includes ``gene_id``, ``gene_name``, ect. as follows
 
 ::
 
-  XV	ensembl	gene	93395	94402	.	-	.	gene_id "YOL120C"; gene_name "RPL18A"; gene_biotype "protein_coding";
-	XV	ensembl	transcript	93395	94402	.	-	.	gene_id "YOL120C"; gene_name "RPL18A"; gene_biotype "protein_coding";
-	XV	ensembl	exon	94291	94402	.	-	.	gene_id "YOL120C"; gene_name "RPL18A"; gene_biotype "protein_coding";
-	XV	ensembl	exon	93395	93843	.	-	.	gene_id "YOL120C"; gene_name "RPL18A"; gene_biotype "protein_coding";
-	XI	ensembl	gene	431906	432720	.	+	.	gene_id "YKL006W"; gene_name "RPL14A"; gene_biotype "protein_coding";
-	XI	ensembl	transcript	431906	432720	.	+	.	gene_id "YKL006W"; gene_name "RPL14A"; gene_biotype "protein_coding";
-	XI	ensembl	exon	431906	432034	.	+	.	gene_id "YKL006W"; gene_name "RPL14A"; gene_biotype "protein_coding";
-	XI	ensembl	exon	432433	432720	.	+	.	gene_id "YKL006W"; gene_name "RPL14A"; gene_biotype "protein_coding";
+  XV  ensembl gene  93395 94402 . - . gene_id "YOL120C"; gene_name "RPL18A"; gene_biotype "protein_coding";
+  XV  ensembl transcript  93395 94402 . - . gene_id "YOL120C"; gene_name "RPL18A"; gene_biotype "protein_coding";
+  XV  ensembl exon  94291 94402 . - . gene_id "YOL120C"; gene_name "RPL18A"; gene_biotype "protein_coding";
+  XV  ensembl exon  93395 93843 . - . gene_id "YOL120C"; gene_name "RPL18A"; gene_biotype "protein_coding";
+  XI  ensembl gene  431906  432720  . + . gene_id "YKL006W"; gene_name "RPL14A"; gene_biotype "protein_coding";
+  XI  ensembl transcript  431906  432720  . + . gene_id "YKL006W"; gene_name "RPL14A"; gene_biotype "protein_coding";
+  XI  ensembl exon  431906  432034  . + . gene_id "YKL006W"; gene_name "RPL14A"; gene_biotype "protein_coding";
+  XI  ensembl exon  432433  432720  . + . gene_id "YKL006W"; gene_name "RPL14A"; gene_biotype "protein_coding";
 
 .. _gtf: http://www.ensembl.org/info/website/upload/gff.html
 
 Alignment
 ---------
 
-There are quite a fewer aligner that allows mapping reads to genome reference with big gaps, mainly caused by splicing. You could use STAR_, TOPHAT_, but I suggest HISAT_ here, which is fast and returns reads with good aligment quality.
+There are quite a fewer aligner that allows mapping reads to genome reference with big gaps, mainly caused by splicing. You could use STAR_, TOPHAT_, but I would suggest HISAT_ here, which is fast and returns reads with good aligment quality.
 
 You could run it like this (based on HISAT 0.1.5), which including alignment, sort and index:
 
   ::
 
-		($hisatDir/hisat -x $hisatRef -1 $fq_dir/"$file"_1.fq.gz -2 $fq_dir/"$file"_2.fq.gz --no-unal | samtools view -bS -> $out_dir/$file.bam) 2> $out_dir/$file.err
-		samtools sort $out_dir/$file.bam $out_dir/$file.sorted
-		samtools index $out_dir/$file.sorted.bam
+    ($hisatDir/hisat -x $hisatRef -1 $fq_dir/"$file"_1.fq.gz -2 $fq_dir/"$file"_2.fq.gz --no-unal | samtools view -bS -> $out_dir/$file.bam) 2> $out_dir/$file.err
+    samtools sort $out_dir/$file.bam $out_dir/$file.sorted
+    samtools index $out_dir/$file.sorted.bam
 
 .. _STAR: https://code.google.com/p/rna-star/
 .. _TOPHAT: https://ccb.jhu.edu/software/tophat/index.shtml
@@ -55,8 +55,7 @@ diceseq
 This command allows you to estimate isoform proportions jointly (or separately if you only input one time point each time). It also allows to merging multiple replicates. You could run it like this:
 
 ::
-
-	my_sam_list=t1_rep1.sorted.bam,t1_rep2.sorted.bam---t1_rep1.sorted.bam---t3_rep1.sorted.bam
+  my_sam_list=t1_rep1.sorted.bam,t1_rep2.sorted.bam---t1_rep1.sorted.bam---t3_rep1.sorted.bam
   diceseq --anno_file=anno_file.gtf --sam_list=my_sam_list --out_file=out_file
 
 There are more parameters for setting:
@@ -78,25 +77,6 @@ There are more parameters for setting:
 Suggestions on setting hyperparameter :math:`\theta_2`: if you want :math:`\theta_2` cover :math:`\eta \in (0,1)` of duration, then you should set :math:`\theta_2=(\eta(t_{max}-t_{min}))^2`. The default is :math:`\eta = 1/3`.
 
 
-demo
-----
-
-You could get the data for the demo from github, where there is a folder named as ``data``
-
-::
-	anno_file=data/anno/yeast_RNA_splicing.gtf
-  sam_dir=data/sam
-
-  # separated model
-	out_file=data/out/t1
-	sam_list=$sam_dir/reads_t1.sorted.bam
-	diceseq --anno_file=$anno_file --add_premRNA=True --sam_list=$sam_list --out_file=$out_file
-
-	# joint model
-	out_file=data/out/joint
-	sam_list=$sam_dir/reads_t1.sorted.bam---$sam_dir/reads_t2.sorted.bam---$sam_dir/reads_t3.sorted.bam
-	diceseq --anno_file=$anno_file --add_premRNA=True --sam_list=$sam_list --out_file=$out_file
-
 
 dice-count
 ==========
@@ -104,7 +84,6 @@ dice-count
 This command allows you to calculate the reads counts in an aligned + sorted + indexed sam (or bam) file with an annotation file in gtf format. It allows calculating the total counts for each gene, but also specific counts of different segments (e.g., junction, exon, and intron) if a gene has exactly one intron. You could run it like this:
 
 ::
-
   dice-count --anno_file=anno_file.gtf --sam_file=sam_file.bam --out_file=out_file.txt
 
 There are more parameters for setting:
@@ -126,32 +105,12 @@ There are more parameters for setting:
 * ``--biotype_only`` (default=None): the only used biotype(s); e.g., snRNA or snRNA---tRNA.
 
 
-demo
-----
-
-You could get the data for the demo from github, where there is a folder named as ``data``
-
-::
-
-  anno_file=data/anno/yeast_RNA_splicing.gtf
-	sam_file=data/sam/reads_t3.sorted.bam
-
-	# total count
-	out_file=data/out/t3_cnt1.txt
-	dice-count --anno_file=$anno_file --sam_file=$sam_file --out_file=$out_file
-
-	# specific reads count 
-	out_file=data/out/t3_cnt2.txt
-	dice-count --anno_file=$anno_file --sam_file=$sam_file --out_file=$out_file --total_only=False
-
-
 dice-simulate
 =============
 
 This command allows generating simulated reads. You could run it like this:
 
   ::
-
     dice-simulate --anno_file=anno_file.gtf --out_file=out_file --ref_file=ref_file.fasta
 
 There are more parameters for setting:

@@ -3,6 +3,12 @@ Release notes
 =============
 
 
+Release 0.1.1 (05/10/2015)
+==========================
+* slight change
+* remove dice-static for direct running
+
+
 Release 0.1.0 (26/10/2015)
 ==========================
 * probabilistic models

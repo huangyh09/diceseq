@@ -9,40 +9,56 @@ Installation
     * `h5py`, `scipy`, `numpy`, `matplotlib`, `pysam`
     * we suggest using Anaconda distribute (http://continuum.io/downloads), which includes most packages but `pysam`
     * you could install `pysam` by pypi in terminal, but you may need to re-start of the terminal for using it.
-
     ::
-        
       pip install pysam
 
 * You can install `DICEseq` simply via pypi in terminal (suggested):
-
   ::
-        
     pip install diceseq
 
 * Or you could download the source code via GitHub (latest version, suggested) or Sourceforge (any version) and run python setup in terminal:
     * GitHub: https://github.com/huangyh09/diceseq
     * Sourceforge: http://sourceforge.net/projects/diceseq/
-
   ::
-        
     python setup.py install
 
 
-Quick start
-===========
+Quick start with demo
+=====================
+
+The demo file demo.sh and also the data are included in github
 
 * Run diceseq for isoform proportions:
+  * separated model
+    ::
+      anno_file=data/anno/yeast_RNA_splicing.gtf
+      sam_dir=data/sam
 
-  ::
+      # separated model
+      out_file=data/out/t1
+      sam_list=$sam_dir/reads_t1.sorted.bam
+      diceseq --anno_file=$anno_file --add_premRNA=True --sam_list=$sam_list --out_file=$out_file
 
-    diceseq --anno_file=anno_file.gtf --sam_file=sam_file.bam --out_file=out_file
+  * joint model
+    ::
+      out_file=data/out/joint
+      sam_list=$sam_dir/reads_t1.sorted.bam---$sam_dir/reads_t2.sorted.bam---$sam_dir/reads_t3.sorted.bam
+      diceseq --anno_file=$anno_file --add_premRNA=True --sam_list=$sam_list --out_file=$out_file
+
+
 
 * Run dice-count for reads counts:
+  * total count
+    ::
+      anno_file=data/anno/yeast_RNA_splicing.gtf
+      sam_file=data/sam/reads_t3.sorted.bam
+      out_file=data/out/t3_cnt1.txt
+      dice-count --anno_file=$anno_file --sam_file=$sam_file --out_file=$out_file
 
-  ::
+  * specific reads count (make sure it contains one intron only)
+    ::
+      out_file=data/out/t3_cnt2.txt
+      dice-count --anno_file=$anno_file --sam_file=$sam_file --out_file=$out_file --total_only=False
 
-    dice-count --anno_file=anno_file.gtf --sam_file=sam_file.bam --out_file=out_file.txt
-
-You could also see the file demo.sh in the source code package. And for more options, see the detailed usages page.
+For more options, see the detailed usages page.
 
