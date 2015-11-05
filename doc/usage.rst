@@ -38,11 +38,11 @@ There are quite a fewer aligner that allows mapping reads to genome reference wi
 
 You could run it like this (based on HISAT 0.1.5), which including alignment, sort and index:
 
-  ::
+::
 
-    ($hisatDir/hisat -x $hisatRef -1 $fq_dir/"$file"_1.fq.gz -2 $fq_dir/"$file"_2.fq.gz --no-unal | samtools view -bS -> $out_dir/$file.bam) 2> $out_dir/$file.err
-    samtools sort $out_dir/$file.bam $out_dir/$file.sorted
-    samtools index $out_dir/$file.sorted.bam
+  ($hisatDir/hisat -x $hisatRef -1 $fq_dir/"$file"_1.fq.gz -2 $fq_dir/"$file"_2.fq.gz --no-unal | samtools view -bS -> $out_dir/$file.bam) 2> $out_dir/$file.err
+  samtools sort $out_dir/$file.bam $out_dir/$file.sorted
+  samtools index $out_dir/$file.sorted.bam
 
 .. _STAR: https://code.google.com/p/rna-star/
 .. _TOPHAT: https://ccb.jhu.edu/software/tophat/index.shtml
@@ -55,6 +55,7 @@ diceseq
 This command allows you to estimate isoform proportions jointly (or separately if you only input one time point each time). It also allows to merging multiple replicates. You could run it like this:
 
 ::
+
   my_sam_list=t1_rep1.sorted.bam,t1_rep2.sorted.bam---t1_rep1.sorted.bam---t3_rep1.sorted.bam
   diceseq --anno_file=anno_file.gtf --sam_list=my_sam_list --out_file=out_file
 
@@ -84,6 +85,7 @@ dice-count
 This command allows you to calculate the reads counts in an aligned + sorted + indexed sam (or bam) file with an annotation file in gtf format. It allows calculating the total counts for each gene, but also specific counts of different segments (e.g., junction, exon, and intron) if a gene has exactly one intron. You could run it like this:
 
 ::
+
   dice-count --anno_file=anno_file.gtf --sam_file=sam_file.bam --out_file=out_file.txt
 
 There are more parameters for setting:
@@ -110,8 +112,9 @@ dice-simulate
 
 This command allows generating simulated reads. You could run it like this:
 
-  ::
-    dice-simulate --anno_file=anno_file.gtf --out_file=out_file --ref_file=ref_file.fasta
+::
+
+  dice-simulate --anno_file=anno_file.gtf --out_file=out_file --ref_file=ref_file.fasta
 
 There are more parameters for setting:
 
