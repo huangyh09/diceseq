@@ -41,19 +41,24 @@ def main():
     parser.add_option("--anno_source", dest="anno_source", default="Ensembl",
         help="The annotation source of the gtf file")
     parser.add_option("--sam_list", "-s", dest="sam_list", default=None,
-        help="The indexed alignement file in bam/sam format")
+        help="the indexed alignement file in bam/sam format, use ',' for\
+        replicates and '---' for time points, e.g.,\
+        my_sam1_rep1.sorted.bam,my_sam1_rep2.sorted.bam---my_sam2.sorted.bam")
     parser.add_option("--time", "-t", dest="time", default=None,
-        help="The time for the input samples.")
+        help="The time for the input samples, e.g., 0,1,2,3, the default\
+        values will be the index of all time points, i.e., 0,1,...")
     parser.add_option("--ref_file", "-r", dest="ref_file", default=None,
-        help="The genome reference file in fasta format")
+        help="The genome reference file in fasta format. This is necessary\
+        for bias correction, otherwise uniform mode will be used.")
     parser.add_option("--bias_file", "-b", dest="bias_file", default=None,
         help="The parameter file for bias in hdf5 format")
     parser.add_option("--gene_file", "-g", dest="gene_file",
-        help="The list genes in use.")
+        help="The list genes in use. It is the gene id in the gtf annotation.")
     parser.add_option("--out_file", "-o", dest="out_file",
-        default="diceseq_out", help="The output file in txt format")
+        default="diceseq_out", help="The prefix of the output file. There will\
+        be two files: one in plain text format, the other in hdf5 format")
     parser.add_option("--sample_num", dest="sample_num", default="500",
-        help="The number of samples to save.")
+        help="The number of MCMC samples to save.")
     parser.add_option("--bias_mode", dest="bias_mode", default="unif", 
         help="The bias mode")
     parser.add_option("--add_premRNA", dest="add_premRNA", default="False",
@@ -123,7 +128,7 @@ def main():
 
     g_cnt = 0
     for g in range(gene_list.shape[0]):
-        #g = 90 # "RPL28"#"APS3" # 27 RPL28; 43 RPL39
+        g_cnt += 1
         i = np.where(np.array(anno["gene_id"]) == gene_list[g])[0][0]
 
         if add_premRNA == True: 
@@ -174,8 +179,7 @@ def main():
 
         _Psi, _Y, _theta, _Pro, _Lik, _cnt, _m = Psi_GP_MH(R_all, len_iso_all, 
             prob_iso_all, X, Ymean, var, theta1, theta2, M, initial, gap)
-        print "%s done. %d acceptances in %d iterations." %(anno["gene_id"][i],
-            _cnt, _m)
+        #print "%s done. %d acceptances in %d iterations." %(anno["gene_id"][i],_cnt,_m)
 
         temp75 = []
         temp95 = []
@@ -194,7 +198,7 @@ def main():
         theta_mean.append(_theta[_m/4:,:].mean(axis=0))
         sample_all.append(_Y[-sample_num:,:-1,:])
 
-        if g_cnt % 50 == 0 and g_cnt != 0:
+        if g_cnt % 10 == 0 and g_cnt != 0:
             print "%d genes have been processed." %g_cnt
 
     fout = h5py.File(out_file + ".hdf5", "w")
@@ -231,6 +235,7 @@ def main():
             aline += "\t%d\t%s\t%s" %(count[g][i], _ratio, _ci95)
         fid.writelines(aline + "\n")
     fid.close()
+    print "%d genes have been processed. Done!" %g_cnt
 
 if __name__ == "__main__":
     main()

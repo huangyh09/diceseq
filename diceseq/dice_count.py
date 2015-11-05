@@ -96,7 +96,7 @@ def main():
         for i in range(len(cnt_name)):
             head_line += "\t" + cnt_name[i] + RPKM_symbol
     else:
-        head_line = "gene_id\tgene_name\tbiotype\tcount\t" + RPKM_symbol
+        head_line = "gene_id\tgene_name\tbiotype\tcount\t" + RPKM_symbol[1:]
     fid.writelines(head_line + "\n")
     
     g_cnt = 0

@@ -31,7 +31,7 @@ def main():
     parser.add_option("--add_premRNA", dest="add_premRNA", default="False",
         help="Whether adding pre-mRNA or not.")
     parser.add_option("--RPK", dest="RPK", default="1000", 
-        help="The sequence depth, default=1000")
+        help="The all used sequence depths, e.g., 100,200,400 and 100")
     parser.add_option("--ratio", dest="ratio", default="0.5", 
         help="The ratio of the first isoform, default=0.5.")
     parser.add_option("--noise", dest="noise", default="0.001",

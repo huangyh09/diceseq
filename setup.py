@@ -1,7 +1,6 @@
 """
-DICEseq - Dynamic RNA splicing estimator via sequencing data
-See:
-http://diceseq.sourceforge.net
+DICEseq - Dynamic Isoform spliCing Estimator via sequencing data
+See: http://diceseq.sourceforge.net
 """
 
 # Always prefer setuptools over distutils
@@ -13,7 +12,7 @@ from os import path
 here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the relevant file
-with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
+with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
     
 reqs = ['numpy', 'scipy', 'matplotlib','h5py','pysam']
@@ -24,7 +23,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.1.0',
+    version='0.1.1',
 
     description='DICEseq',
     long_description=long_description,
@@ -40,7 +39,8 @@ setup(
     license='MIT',
 
     # What does your project relate to?
-    keywords=['RNA splicing', 'RNA-seq', 'dynamics', 'probabilistic models'],
+    keywords=['splicing isoform quantification', 'time series RNA-seq',
+              'Gaussian process', 'Markov chain Monte Carlo'],
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
@@ -49,7 +49,6 @@ setup(
     entry_points={
           'console_scripts': [
               'diceseq = diceseq.diceseq:main',
-              'dice-static = diceseq.diceseq_static:main',
               'dice-count = diceseq.dice_count:main',
               'dice-simulate = diceseq.read_simulate:main',
               'dice-bias = diceseq.bias_estimate:main',

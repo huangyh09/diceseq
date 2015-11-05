@@ -1,0 +1,6 @@
+gene_id	gene_name	biotype	ex1_NUM	ex1_int_NUM	int_NUM	int_ex2_NUM	ex2_NUM	ex1_ex2_junc_NUM	ex1_int_ex2_NUM	ex1_ex2_vague_NUM	ex1_RPK	ex1_int_RPK	int_RPK	int_ex2_RPK	ex2_RPK	ex1_ex2_junc_RPK	ex1_int_ex2_RPK	ex1_ex2_vague_RPK
+YMR116C	ASC1	protein_coding	95	5	8	1	68	23	0	0	0.21	0.07	0.04	0.01	0.19	0.07	0.00	0.00
+YNL112W	DBP2	protein_coding	256	5	25	2	52	18	0	0	0.21	0.07	0.03	0.03	0.18	0.05	0.00	0.00
+YOL120C	RPL18A	protein_coding	6	1	19	2	92	8	0	0	0.16	0.01	0.05	0.03	0.25	0.07	0.00	0.00
+YKL006W	RPL14A	protein_coding	10	3	12	4	47	10	0	0	0.18	0.04	0.04	0.05	0.22	0.08	0.00	0.00
+YDR381W	YRA1	protein_coding	37	2	25	3	72	19	0	0	0.18	0.03	0.04	0.04	0.22	0.07	0.00	0.00
