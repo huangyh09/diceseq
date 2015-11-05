@@ -76,14 +76,7 @@ There are more parameters for setting:
 * ``--theta2_fix`` (default=None): The fixed hyperparameter theta2 for the GP model. The default will cover 1/3 of the duration.
 * ``--is_twice`` (default=True): Whether estimate the rates twice with a quick check first. It is useful for ensuring the 30-50% acceptances in MH sampler.
 
-Suggestions on setting hyperparameter :math:`\theta_2`: if you want :math:`\theta_2` cover :math:`\eta \in (0,1)` of duration, then you should set :math:`\theta_2=(\eta(t_{max}-t_{min}))^2`. The default is :math:`\eta = 1/3`.
-
-theta_2 setting (with covering duration as \eta, default: \eta=1/3): 
-
-  .. math::
-
-    \theta_2=(\eta(t_{max}-t_{min}))^2
-
+Suggestions on setting hyperparameter `\theta_2`: if you want `\theta_2` cover `\eta \in (0,1)` of duration, then you should set `\theta_2=(\eta(t_{max}-t_{min}))^2`. The default is `\eta = 1/3`.
 
 
 dice-count

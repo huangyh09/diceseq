@@ -34,7 +34,7 @@ Installation
 Quick start with demo
 =====================
 
-The demo file demo.sh `demo.sh <https://github.com/huangyh09/diceseq/blob/master/demo.sh>`_ and also the `data <https://github.com/huangyh09/diceseq/tree/master/data>`_ are included in `github <https://github.com/huangyh09/diceseq>`_
+The demo file `demo.sh <https://github.com/huangyh09/diceseq/blob/master/demo.sh>`_ and also the `data <https://github.com/huangyh09/diceseq/tree/master/data>`_ are included in `github <https://github.com/huangyh09/diceseq>`_
 
 * Run diceseq for isoform proportions:
 
