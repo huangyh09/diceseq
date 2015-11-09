@@ -8,12 +8,12 @@ This page contains the details on how to use the functions that DICEseq provides
 
 
 
-Preprocess
+preprocess
 ==========
 
 .. _format:
 
-Annotation format
+annotation format
 -----------------
 
 The basic format is gtf_. In order to simply process the gtf file, we used a few formats of key words. The default is similar as Ensembl format. Namely, the order is ``gene`` --> ``transcript 1`` --> ``exon ...`` --> ``transcript 2`` --> ``exon ...`` , and the attributes includes ``gene_id``, ``gene_name``, ect. as follows
@@ -31,7 +31,7 @@ The basic format is gtf_. In order to simply process the gtf file, we used a few
 
 .. _gtf: http://www.ensembl.org/info/website/upload/gff.html
 
-Alignment
+alignment
 ---------
 
 There are quite a fewer aligner that allows mapping reads to genome reference with big gaps, mainly caused by splicing. You could use STAR_, TOPHAT_, but I would suggest HISAT_ here, which is fast and returns reads with good aligment quality.

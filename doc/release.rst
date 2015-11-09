@@ -3,7 +3,12 @@ Release notes
 =============
 
 
-Release 0.1.1 (05/10/2015)
+Release 0.1.2 (09/11/2015)
+==========================
+* slight change to be compatible with pysam 0.8.3
+
+
+Release 0.1.1 (05/11/2015)
 ==========================
 * slight change
 * remove dice-static for direct running

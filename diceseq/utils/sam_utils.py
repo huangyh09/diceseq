@@ -70,10 +70,10 @@ def fetch_reads(samfile, chrom, start, end, rm_duplicate=True, inner_only=True,
     #part 2. get reads and filter some of them
     qname1, qname2 = [], []
     reads1, reads2 = [], []
-    r_prev = ""
+    r_prev = None
     for r in reads:
         # filter 4: only keep the first one of duplicates
-        if (rm_duplicate and r_prev != "" and r_prev.qname == r.qname and 
+        if (rm_duplicate and r_prev is not None and r_prev.qname == r.qname and 
             r_prev.positions == r.positions): r_prev = r; continue
         r_prev = r
         # filter 1: only particially mapped to the regions

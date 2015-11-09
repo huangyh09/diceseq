@@ -16,7 +16,7 @@ Installation
 
       pip install pysam
 
-* You can install `DICEseq` simply via pypi in terminal (suggested):
+* You can install `DICEseq` simply via pypi in terminal (suggested), and upgrade by add ``--upgrade``:
 
   ::
 
