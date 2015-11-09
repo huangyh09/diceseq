@@ -1,5 +1,25 @@
 import numpy as np
 
+def erf(x):
+    """error function approximation, with maximum error 1.5e-7.
+    """
+    # save the sign of x
+    if x >= 0: sign = 1
+    else: sign = -1
+    x = abs(x)
+    # constants
+    a1 =  0.254829592
+    a2 = -0.284496736
+    a3 =  1.421413741
+    a4 = -1.453152027
+    a5 =  1.061405429
+    p  =  0.3275911
+    # A&S formula 7.1.26
+    t = 1.0/(1.0 + p*x)
+    y = 1.0 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1)*t*np.exp(-x*x)
+    return sign*y # erf(-x) = -erf(x)
+
+
 def gamma_pdf(x, k, theta, log=True):
     """
     Calculate the probability density of Gamma distribution.
@@ -91,8 +111,8 @@ def trun_normal_pdf(x, mu, sigma, a, b, log=True):
     b = b - mu
     
     pdf = np.exp(-0.5 * (x/sigma)**2) / (sigma * np.sqrt(2 * np.pi))
-    cdf_a = (1 + np.math.erf(a / sigma / np.sqrt(2))) / 2.0
-    cdf_b = (1 + np.math.erf(b / sigma / np.sqrt(2))) / 2.0
+    cdf_a = (1 + erf(a / sigma / np.sqrt(2))) / 2.0
+    cdf_b = (1 + erf(b / sigma / np.sqrt(2))) / 2.0
     
     pdf = pdf / abs(cdf_b - cdf_a)
     if log == True: pdf = np.log(pdf)

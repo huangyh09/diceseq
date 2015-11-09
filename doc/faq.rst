@@ -21,5 +21,8 @@ Please do not directly use a list file containing the sam files. Otherwise you n
 If you are using `pysam` 0.8.2 or higher version, please use `diceseq` 0.1.2 or higher.
 
 
+3. compatibility with numpy
+---------------------------
 
+If you are using `numpy` 1.8.2 or higher version, please use `diceseq` 0.1.3 or higher.
 

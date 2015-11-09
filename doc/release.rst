@@ -3,9 +3,10 @@ Release notes
 =============
 
 
-Release 0.1.2 (09/11/2015)
+Release 0.1.3 (09/11/2015)
 ==========================
 * slight change to be compatible with pysam 0.8.3
+* change numpy.math.erf() to personally wroten erf(), as the former is not supported in numpy 1.8.2 and higher
 
 
 Release 0.1.1 (05/11/2015)
