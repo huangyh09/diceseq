@@ -2,8 +2,8 @@ DICEseq: Dynamic Isoform spliCing estimator via sequencing data
 ===============================================================
 
 :Author: Yuanhua Huang
-:Version: 0.1.4
-:Last viewed: November 09, 2015
+:Version: 0.1.5
+:Last viewed: November 10, 2015
 
 Different from most methods that quantifies the splicing isoforms statically, DICEseq estimates the dynamics of isoform proportions jointly from time series RNA-seq experiments. DICEseq is a Bayesian method based on a mixture model whose mixing proportions represent isoform ratios; however, DICEseq incorporates the correlations induced by the temporal structure by coupling the isoform proportions at different times through a latent Gaussian process (GP).
 

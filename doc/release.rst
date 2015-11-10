@@ -3,10 +3,11 @@ Release notes
 =============
 
 
-Release 0.1.4 (09/11/2015)
+Release 0.1.5 (10/11/2015)
 ==========================
 * slight change to be compatible with pysam 0.8.3
 * change numpy.math.erf() to personally wroten erf(), as the former is not supported in numpy 1.8.2 and higher
+* provide the option to not save the hdf5 copy.
 
 
 Release 0.1.1 (05/11/2015)

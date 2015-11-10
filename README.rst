@@ -16,7 +16,7 @@ DICEseq provides following functions:
 6. Generating simulation reads with given isoform proportions and sequencing coverage.
 7. Reads sequence and position bias correction and plot (under study)
 
-.. _MISO: http://www.python.org/
+.. _MISO: http://genes.mit.edu/burgelab/miso/
 
 In addition to run the DICEseq functions from standard command line, DICEseq also provides interface of a set of functions and attributes as an object-oriented python module. Therefore, you could, for example customize the coordinates of exons and introns, add and remove of specific transcripts.
 

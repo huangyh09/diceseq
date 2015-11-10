@@ -57,6 +57,8 @@ def main():
     parser.add_option("--out_file", "-o", dest="out_file",
         default="diceseq_out", help="The prefix of the output file. There will\
         be two files: one in plain text format, the other in hdf5 format")
+    parser.add_option("--out_h5", dest="out_h5", default="True",
+        help="whether save a hdf5 file as well.")
     parser.add_option("--sample_num", dest="sample_num", default="500",
         help="The number of MCMC samples to save.")
     parser.add_option("--bias_mode", dest="bias_mode", default="unif", 
@@ -99,6 +101,7 @@ def main():
     out_file  = options.out_file
     bias_file = options.bias_file
     bias_mode = options.bias_mode
+    out_h5    = options.out_h5 == "True"
     is_twice  = options.is_twice == "True"
     sample_num = int(options.sample_num)
     add_premRNA = options.add_premRNA == "True"
@@ -201,31 +204,17 @@ def main():
         if g_cnt % 10 == 0 and g_cnt != 0:
             print "%d genes have been processed." %g_cnt
 
-    fout = h5py.File(out_file + ".hdf5", "w")
-    fout["X"] = X
-    fout["count"] = count
-    fout["y_var"] = y_var
-    fout["y_mean"] = y_mean
-    fout["psi_75"] = psi_75
-    fout["psi_95"] = psi_95
-    fout["psi_var"] = psi_var
-    fout["psi_mean"] = psi_mean
-    fout["pro_mean"] = pro_mean
-    fout["lik_marg"] = lik_marg
-    fout["gene_info"] = gene_info
-    fout["sample_all"] = sample_all
-    fout["theta_mean"] = theta_mean
-    fout.close()
+    print "%d genes have been processed. Done!" %g_cnt
 
     fid = open(out_file + ".dice", "w")
-    headline = "gene_id\ttranscripts"
+    headline = "gene_id\ttranscripts\tlogLik"
     for i in range(len(X)):
     	_t = str(X[i])
         headline += "\tcount_T%s\tratio_T%s\t95CI_T%s" %(_t, _t, _t)
     fid.writelines(headline + "\n")
 
     for g in range(len(count)):
-        aline = gene_info[g][0] + "\t" + gene_info[g][-1]
+        aline = gene_info[g][0] + "\t" + gene_info[g][-1] + "\t%.1e" %lik_marg[g]
         for i in range(len(X)):
             _ratio,_ci95 = [], []
             for c in range(len(psi_mean[g][:,i])-1):
@@ -235,7 +224,23 @@ def main():
             aline += "\t%d\t%s\t%s" %(count[g][i], _ratio, _ci95)
         fid.writelines(aline + "\n")
     fid.close()
-    print "%d genes have been processed. Done!" %g_cnt
+
+    if out_h5:
+	    fout = h5py.File(out_file + ".hdf5", "w")
+	    fout["X"] = X
+	    fout["count"] = count
+	    fout["y_var"] = y_var
+	    fout["y_mean"] = y_mean
+	    fout["psi_75"] = psi_75
+	    fout["psi_95"] = psi_95
+	    fout["psi_var"] = psi_var
+	    fout["psi_mean"] = psi_mean
+	    fout["pro_mean"] = pro_mean
+	    fout["lik_marg"] = lik_marg
+	    fout["gene_info"] = gene_info
+	    fout["sample_all"] = sample_all
+	    fout["theta_mean"] = theta_mean
+	    fout.close()
 
 if __name__ == "__main__":
     main()

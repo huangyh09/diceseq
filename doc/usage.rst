@@ -68,6 +68,7 @@ There are more parameters for setting:
 * ``--ref_file`` or ``-r`` (default=None): the genome reference file in fasta format. This is necessary for bias correction, otherwise uniform mode will be used.
 * ``--gene_file`` or ``-g`` (default=None): the list of genes in use. It is the gene id in the gtf annotation. Default is all genes in annotations.
 * ``--out_file`` or ``-o`` (default=diceseq_out): The prefix of the output file. There will be two output file, one in plain text format, the other in hdf5 format.
+* ``--out_h5`` (default=True): whether save a hdf5 file as well.
 * ``--bias_file`` or ``-b`` (default=None): the parameter file for bias in hdf5 format.
 * ``--bias_mode`` (default=unif): The bias mode: unif (uniform), end3, end5, both.
 * ``--sample_num`` (default=500): The number of MCMC samples to save.
