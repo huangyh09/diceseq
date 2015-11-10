@@ -2,7 +2,7 @@
 # Licensed under the MIT License at
 # http://opensource.org/licenses/MIT
 
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 
 from utils.reads_utils import ReadSet
 from utils.bias_utils import FastaFile, BiasFile

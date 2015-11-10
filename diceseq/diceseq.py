@@ -129,6 +129,17 @@ def main():
     theta_mean, pro_mean = [], []
     lik_marg, sample_all = [], []
 
+    if time is None: X = np.arange(len(sam_list))
+    else: X = np.array(time.split(","), "float")
+    if theta2 is None: theta2 = ((max(X) - min(X) + 0.1) / 3.0)**2
+
+    fid = open(out_file + ".dice", "w")
+    headline = "gene_id\ttranscripts\tlogLik"
+    for i in range(len(X)):
+        _t = str(X[i])
+        headline += "\tcount_T%s\tratio_T%s\t95CI_T%s" %(_t, _t, _t)
+    fid.writelines(headline + "\n")
+
     g_cnt = 0
     for g in range(gene_list.shape[0]):
         g_cnt += 1
@@ -158,10 +169,6 @@ def main():
                 prob_iso_all.append(t.proB)
             _count.append(len(t.read1p) + len(t.read1u) + len(t.read2u))
         count.append(np.array(_count))
-
-        if time is None: X = np.arange(len(R_all))
-        else: X = np.array(time.split(","), "float")
-        if theta2 is None: theta2 = ((max(X) - min(X) + 0.1) / 3.0)**2
 
         M = 50000       
         var = 0.5
@@ -201,19 +208,6 @@ def main():
         theta_mean.append(_theta[_m/4:,:].mean(axis=0))
         sample_all.append(_Y[-sample_num:,:-1,:])
 
-        if g_cnt % 10 == 0 and g_cnt != 0:
-            print "%d genes have been processed." %g_cnt
-
-    print "%d genes have been processed. Done!" %g_cnt
-
-    fid = open(out_file + ".dice", "w")
-    headline = "gene_id\ttranscripts\tlogLik"
-    for i in range(len(X)):
-    	_t = str(X[i])
-        headline += "\tcount_T%s\tratio_T%s\t95CI_T%s" %(_t, _t, _t)
-    fid.writelines(headline + "\n")
-
-    for g in range(len(count)):
         aline = gene_info[g][0] + "\t" + gene_info[g][-1] + "\t%.1e" %lik_marg[g]
         for i in range(len(X)):
             _ratio,_ci95 = [], []
@@ -223,24 +217,28 @@ def main():
             _ratio,_ci95 = ",".join(_ratio), ",".join(_ci95)
             aline += "\t%d\t%s\t%s" %(count[g][i], _ratio, _ci95)
         fid.writelines(aline + "\n")
+
+        if g_cnt % 10 == 0 and g_cnt != 0:
+            print "%d genes have been processed." %g_cnt
+    print "%d genes have been processed. Done!" %g_cnt
     fid.close()
 
     if out_h5:
-	    fout = h5py.File(out_file + ".hdf5", "w")
-	    fout["X"] = X
-	    fout["count"] = count
-	    fout["y_var"] = y_var
-	    fout["y_mean"] = y_mean
-	    fout["psi_75"] = psi_75
-	    fout["psi_95"] = psi_95
-	    fout["psi_var"] = psi_var
-	    fout["psi_mean"] = psi_mean
-	    fout["pro_mean"] = pro_mean
-	    fout["lik_marg"] = lik_marg
-	    fout["gene_info"] = gene_info
-	    fout["sample_all"] = sample_all
-	    fout["theta_mean"] = theta_mean
-	    fout.close()
+        fout = h5py.File(out_file + ".hdf5", "w")
+        fout["X"] = X
+        fout["count"] = count
+        fout["y_var"] = y_var
+        fout["y_mean"] = y_mean
+        fout["psi_75"] = psi_75
+        fout["psi_95"] = psi_95
+        fout["psi_var"] = psi_var
+        fout["psi_mean"] = psi_mean
+        fout["pro_mean"] = pro_mean
+        fout["lik_marg"] = lik_marg
+        fout["gene_info"] = gene_info
+        fout["sample_all"] = sample_all
+        fout["theta_mean"] = theta_mean
+        fout.close()
 
 if __name__ == "__main__":
     main()

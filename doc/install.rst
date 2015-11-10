@@ -16,11 +16,14 @@ Installation
 
       pip install pysam
 
-* You can install `DICEseq` simply via pypi in terminal (suggested), and upgrade by add ``--upgrade``:
+* You can install `DICEseq` simply via pypi in terminal (suggested), or upgrade by add ``--upgrade`` as follows:
 
   ::
 
     pip install diceseq
+
+    pip install --upgrade --no-deps diceseq
+
 
 * Or you could download the source code via GitHub (latest version, suggested) or Sourceforge (any version) and run python setup in terminal:
     * GitHub: https://github.com/huangyh09/diceseq
