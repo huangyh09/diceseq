@@ -41,7 +41,7 @@ def gamma_pdf(x, k, theta, log=True):
         The probability density of x.
     """
     if k == 0: 
-        print "The shape of Gamma distribution cannot be 0, please check!"
+        print("The shape of Gamma distribution cannot be 0, please check!")
         return None
     pdf = -np.math.lgamma(k) - k*np.log(theta)
     pdf += (k-1)*np.log(x) - x/theta
@@ -76,7 +76,7 @@ def normal_pdf(x, mu, cov, log=True):
     cov_inv = np.linalg.inv(cov)
     cov_det = np.linalg.det(cov)
     if cov_det < 0:
-        print "The det of covariance is negative, please check!"
+        print("The det of covariance is negative, please check!")
         return None
     pdf = (-0.5*np.log(2*np.pi*cov_det) - 0.5*np.dot(np.dot(x, cov_inv), x))
     if log == False: pdf = np.exp(pdf)
@@ -165,8 +165,8 @@ def Geweke_Z(X, first=0.1, last=0.5):
         The Z score of Geweke diagnostics.
     """
     N = X.shape[0]
-    A = X[:first*N]
-    B = X[last*N:]
+    A = X[:int(first*N)]
+    B = X[int(last*N):]
     if np.sqrt(np.var(A) + np.var(B)) == 0: 
         Z = None
     else:
@@ -174,7 +174,7 @@ def Geweke_Z(X, first=0.1, last=0.5):
     return Z
 
 
-def Psi_GP_MH(R_mat, len_isos, prob_isos, X=None, Ymean=None, var=0.05, 
+def Psi_GP_MH(R_mat, len_isos, prob_isos, X=None, Ymean=None, var=None, 
               theta1=3.0, theta2=None, M=20000, initial=1000, gap=500, 
               randomS=None, theta2_std=1.0, theta2_low=0.01, theta2_up=100):
     """
@@ -249,9 +249,11 @@ def Psi_GP_MH(R_mat, len_isos, prob_isos, X=None, Ymean=None, var=0.05,
     theta_now = np.zeros((C-1, 2))
     theta_now[:,0] = theta1
     theta_now[:,1] = theta2
+    if var is None: var = 0.05 * np.ones(C-1)
     if theta2 is not None: theta_now[:,1] = theta2
     else: theta_now[:,1] = 0.75
-    Y_now = Ymean
+    Y_now = Ymean + 0.0
+    Ymean = np.zeros((C,T))
 
     psi_now = np.zeros((C, T))
     fsi_now = np.zeros((C, T))
@@ -295,13 +297,13 @@ def Psi_GP_MH(R_mat, len_isos, prob_isos, X=None, Ymean=None, var=0.05,
                     theta_try[c,1] = np.random.normal(theta_now[c,1],theta2_std)
             cov_try[:,:,c] = GP_K(X, theta_try[c,:])
             Y_try[c,:] = np.random.multivariate_normal(Y_now[c,:], 
-                cov_try[:,:,c]/theta1*var*5/T)
+                cov_try[:,:,c]/theta1*var[c]*5/T/C)
                         
             P_try += normal_pdf(Y_try[c,:], Ymean[c,:], cov_try[:,:,c])
             Q_now += normal_pdf(Y_now[c,:], Y_try[c,:], 
-                cov_try[:,:,c]/theta1*var*5/T)
+                cov_try[:,:,c]/theta1*var[c]*5/T/C)
             Q_try += normal_pdf(Y_try[c,:], Y_now[c,:], 
-                cov_now[:,:,c]/theta1*var*5/T)
+                cov_now[:,:,c]/theta1*var[c]*5/T/C)
             Q_now += trun_normal_pdf(theta_now[c,1], theta_try[c,1], 
                 theta2_std, theta2_low, theta2_up)
             Q_try += trun_normal_pdf(theta_try[c,1], theta_now[c,1], 
@@ -317,7 +319,7 @@ def Psi_GP_MH(R_mat, len_isos, prob_isos, X=None, Ymean=None, var=0.05,
         # step 2: calculate the MH ratio and accept or reject the proposal
         alpha = np.exp(min(P_try+Q_now-P_now-Q_try, 0))
         if alpha is None:
-            print "alpha is none!"
+            print("alpha is none!")
         elif np.random.rand(1) < alpha:
             #print alpha
             cnt += 1
@@ -340,7 +342,8 @@ def Psi_GP_MH(R_mat, len_isos, prob_isos, X=None, Ymean=None, var=0.05,
             conv = 1
             for c in range(C-1):
                 for t in range(T):
-                    Z = Geweke_Z(Y_all[:m,c,t])
+                    # Z = Geweke_Z(Y_all[:m,c,t])
+                    Z = Geweke_Z(Psi_all[:m,c,t])
                     if Z is None or Z > 2: 
                         conv = 0
                         break
@@ -355,3 +358,122 @@ def Psi_GP_MH(R_mat, len_isos, prob_isos, X=None, Ymean=None, var=0.05,
                 theta_all = theta_all[:m,:]
                 break
     return Psi_all, Y_all, theta_all, Pro_all, Lik_all, cnt, m
+
+
+def EM_filter(R_mat, len_isos, prob_isos, min_num=2):
+    T = len(len_isos)
+    C = len(len_isos[0])
+    for t in range(T):
+        idx = (len_isos[t] != len_isos[t])
+        len_isos[t][idx] = 0.0
+        prob_isos[t][:,idx] = 0.0
+        R_mat[t][:,idx] = False
+
+        idx = np.where(R_mat[t] != R_mat[t])
+        R_mat[t][idx] = False
+
+        idx = np.where(prob_isos[t] != prob_isos[t])
+        prob_isos[t][idx] = 0.0
+
+        idx = (R_mat[t].sum(axis=1) > 0) * (prob_isos[t].sum(axis=1) > 0)
+        R_mat[t] = R_mat[t][idx,:]
+        prob_isos[t] = prob_isos[t][idx,:]
+
+    KP_FLAG = np.ones(C, 'bool')
+    count_tmp = np.zeros(T)
+    psi_tmp = np.zeros((T, C))
+    for t in range(T):
+        if np.sum(R_mat[t]) == 0: continue
+        count_tmp = np.sum(R_mat[t][:,:].sum(axis=1) > 0)
+        psi_tmp[t,:], _Lik_all = Psi_EM(R_mat[t], len_isos[t], prob_isos[t])
+
+    idx = np.argsort(psi_tmp.mean(axis=0))
+    for i in range(len(idx)-min_num):
+        if np.max(psi_tmp[:,idx[i]]) < 0.001 and np.mean(count_tmp) > 100:
+            KP_FLAG[idx[i]] = False
+    return KP_FLAG, psi_tmp
+
+
+def Psi2Y(Psi):
+    Psi = Psi / np.sum(Psi)
+    Y = np.zeros(len(Psi))
+    Y[:-1] = np.log(Psi[:-1] / Psi[-1])
+    return Y
+
+def EM_bootstrap(R_mat, len_isos, prob_isos, bootN=10):
+    T = len(len_isos)
+    C = len(len_isos[0])
+    for t in range(T):
+        idx = (len_isos[t] != len_isos[t])
+        len_isos[t][idx] = 0.0
+        prob_isos[t][:,idx] = 0.0
+        R_mat[t][:,idx] = False
+
+        idx = np.where(R_mat[t] != R_mat[t])
+        R_mat[t][idx] = False
+
+        idx = np.where(prob_isos[t] != prob_isos[t])
+        prob_isos[t][idx] = 0.0
+
+        idx = (R_mat[t].sum(axis=1) > 0) * (prob_isos[t].sum(axis=1) > 0)
+        R_mat[t] = R_mat[t][idx,:]
+        prob_isos[t] = prob_isos[t][idx,:]
+
+    Y_boot = np.zeros((bootN, T, C))
+    psi_boot = np.ones((bootN, T, C))/(C+0.0)
+    for i in range(bootN):
+        for t in range(T):
+            _N = R_mat[t].shape[0]
+            if _N == 0: continue
+            idx = np.random.randint(_N, size=_N)
+            if np.sum(R_mat[t][idx,:]) == 0: continue
+            psi_boot[i,t,:], _Lik_all = Psi_EM(R_mat[t][idx,:], len_isos[t], prob_isos[t][idx,:])
+            Y_boot[i,t:] = Psi2Y(psi_boot[i,t,:] + 0.000001)
+    var_boot = Y_boot.var(axis=0).mean(axis=0)
+    # var_boot = psi_boot.var(axis=0).mean(axis=0) * 36
+    
+    return Y_boot.mean(axis=0), var_boot
+    # return psi_boot.mean(axis=0), var_boot
+
+def Psi_EM(R_mat, len_isos, prob_isos, M=100):
+    # check input data
+    idx = (len_isos != len_isos)
+    len_isos[idx] = 0.0
+    prob_isos[:,idx] = 0.0
+    R_mat[:,idx] = False
+
+    idx = np.where(R_mat != R_mat)
+    R_mat[idx] = False
+
+    idx = np.where(prob_isos != prob_isos)
+    prob_isos[idx] = 0.0
+
+    idx = (R_mat.sum(axis=1) > 0) * (prob_isos.sum(axis=1) > 0)
+    R_mat = R_mat[idx,:]
+    prob_isos = prob_isos[idx,:]
+
+    # random initialization
+    Psi = np.random.dirichlet(np.ones(R_mat.shape[1]))
+    Fsi = Psi * len_isos / np.sum(Psi * len_isos)
+    Lik = np.log(np.dot(R_mat*prob_isos, Fsi)).sum()
+    
+    cnt = 0
+    Lik_all = np.zeros(M)
+    for i in range(M):
+        cnt += 1
+        # E step
+        Num = (R_mat*prob_isos*Fsi)
+        Num = Num / Num.sum(axis=1).reshape(-1,1)
+        Num = Num.sum(axis=0)
+        
+        # M step
+        Pro = Num / len_isos
+        Psi = Pro / sum(Pro)
+        Fsi = Psi * len_isos / sum(Psi * len_isos)
+        Lik = np.log(np.dot(R_mat*prob_isos, Fsi)).sum()
+        Lik_all[i] = Lik
+
+        # check convergence
+        if i > 0 and (Lik - Lik_all[i-1]) < np.log(1+10**(-5)):
+            break
+    return Psi, Lik_all

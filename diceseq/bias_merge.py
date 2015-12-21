@@ -3,7 +3,7 @@
 import h5py
 import numpy as np
 from optparse import OptionParser
-from utils.bias_utils import BiasFile
+from .utils.bias_utils import BiasFile
 
 def main():
    #part 0. parse command line options

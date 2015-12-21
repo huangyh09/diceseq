@@ -1,11 +1,11 @@
 # This module is to process different transcript state, and set information
 # for the transcript states, and finally get ready to run MCMC sampling.
 
-import h5py
+import sys
 import numpy as np
-from sam_utils import load_samfile, fetch_reads
-from bias_utils import FastaFile, BiasFile
-from gtf_utils import Gene, Transcript
+from .sam_utils import load_samfile, fetch_reads
+from .bias_utils import FastaFile, BiasFile
+from .gtf_utils import Gene, Transcript
 
 def normal_pdf(x, mu, sigma):
     RV = 1 / (sigma*np.sqrt(2*np.pi)) * np.exp(-1.0/2*((x-mu)/sigma)**2)
@@ -19,9 +19,9 @@ class TranUnits:
         self.units  = transcript.exons
         self.loci   = np.array([],"int")
         for i in range(self.units.shape[0]):
-            _loci   = np.arange(self.units[i,0], self.units[i,1]+1)
+            _loci = np.arange(self.units[i,0], self.units[i,1]+1)
             self.loci = np.append(self.loci, _loci)
-        self.ulen   = len(self.loci)
+        self.ulen = len(self.loci)
 
     def set_sequence(self, fastaFile=None):
         """set the sequence of the transcript units, with 20 bases longer in 
@@ -35,14 +35,14 @@ class TranUnits:
             self.seq += fastaFile.get_seq(self.chrom, self.units[i,1] + 1, 
                                                       self.units[i,1] + 20)
         else:
-            print "This is a Null sequence file."
+            print("This is a Null sequence file.")
 
-    def set_bias(self, biasFile, mode="both"):
+    def set_bias(self, biasFile=None, mode="both"):
         """set the bias for all loci, with the bias modes of sequence / 
         position / both; make sure setting quence before using sequence
         or both modes"""
         if biasFile is None:
-            # print "This is a Null bias file."
+            # print("This is a Null bias file.")
             return
             
         self.bias_method = mode
@@ -72,107 +72,8 @@ class TranUnits:
                 self.bias5[i] *= biasFile.get_pos_bias(_pos, self.ulen, 5)
                 self.bias3[i] *= biasFile.get_pos_bias(_pos, self.ulen, 3)
 
-    # def generate_reads(self, N, rlen=50, bias_mode="unif"):
-    #     """generate the simulation reads. Only implimented the single-end
-    #     reads for 5'end or 3'end. bias_mode could be 'unif', 'end5', 'end3'
-    #     and 'both'. """
-    #     reads = []
-    #     if self.strand == "1" or self.strand == "+":
-    #         idx5 = np.arange(0, self.ulen-rlen+1)
-    #         idx3 = np.arange(rlen-1, self.ulen)
-    #     else:
-    #         idx5 = np.arange(rlen-1, self.ulen)
-    #         idx3 = np.arange(0, self.ulen-rlen+1)
-
-    #     probs = np.ones(self.ulen-rlen+1)
-    #     if bias_mode == "end5" or bias_mode == "both":
-    #         probs *= self.bias5[idx5]
-    #     if bias_mode == "end3" or bias_mode == "both":
-    #         probs *= self.bias3[idx3]
-    #     probs = probs / np.sum(probs)
-    #     count = np.random.multinomial(N, probs)
-    #     #print count
-
-    #     for i in range(count.shape[0]):
-    #         r = self.seq[i+20 : i+20+rlen]
-    #         if self.strand == "-1" or self.strand == "-":
-    #             rev = []
-    #             rev[:] = r[::-1]
-    #             for c in range(len(rev)):
-    #                 if   rev[c] == "A": rev[c] = "T"
-    #                 elif rev[c] == "T": rev[c] = "A"
-    #                 elif rev[c] == "G": rev[c] = "C"
-    #                 elif rev[c] == "C": rev[c] = "G"
-    #             r = "".join(rev)
-    #         for j in range(count[i]):
-    #             reads.append(r)
-    #     return reads
-
-    def generate_reads(self, N, rlen=100, flen=200, sigma=20, bias_mode="both"):
-        """generate the simulation reads. Only implimented the single-end
-        reads for 5'end or 3'end. bias_mode could be 'unif', 'end5', 'end3'
-        and 'both'. """
-        reads1, reads2 = [], []
-        if self.strand == "1" or self.strand == "+":
-            idx5 = np.arange(0, self.ulen-rlen+1)
-            idx3 = np.arange(rlen-1, self.ulen)
-        else:
-            idx5 = np.arange(rlen-1, self.ulen)
-            idx3 = np.arange(0, self.ulen-rlen+1)
-
-        cnt = -1
-        probs = np.ones((len(idx5)+1)*len(idx5)/2)
-        idx5s = np.ones((len(idx5)+1)*len(idx5)/2, "int")
-        idx3s = np.ones((len(idx5)+1)*len(idx5)/2, "int")
-        for i in range(len(idx5)):
-            for j in range(i,len(idx3)):
-                cnt += 1
-                if self.strand == "1" or self.strand == "+":
-                    x = idx3[j] - idx5[i] + 1
-                    idx5s[cnt] = idx5[i]
-                    idx3s[cnt] = idx3[j]
-                else:
-                    x = idx5[j] - idx3[i] + 1
-                    idx5s[cnt] = idx5[j]
-                    idx3s[cnt] = idx3[i]
-                if x < 0: print "Errors! flen is negative!"
-                probs[cnt] = (1 / (sigma*np.sqrt(2*np.pi)) * 
-                              np.exp(-0.5*((x-flen)/sigma)**2))
-        if bias_mode == "end5" or bias_mode == "both":
-            probs *= self.bias5[idx5s]
-        if bias_mode == "end3" or bias_mode == "both":
-            probs *= self.bias3[idx3s]
-        probs = probs / np.sum(probs)
-        count = np.random.multinomial(N, probs)
-        #print count
-
-        for i in range(count.shape[0]):
-            if count[i] == 0: continue
-            if self.strand == "1" or self.strand == "+":
-                fwd = self.seq[idx5s[i]+20 : idx3s[i]+20+1]
-            else:
-                fwd = self.seq[idx3s[i]+20 : idx5s[i]+20+1]
-            rev = []
-            rev[:] = fwd[::-1]
-            for c in range(len(rev)):
-                if   rev[c] == "A": rev[c] = "T"
-                elif rev[c] == "T": rev[c] = "A"
-                elif rev[c] == "G": rev[c] = "C"
-                elif rev[c] == "C": rev[c] = "G"
-            rev = "".join(rev)
-            for j in range(count[i]):
-                if self.strand == "1" or self.strand == "+":
-                    reads1.append(fwd[:rlen])
-                    reads2.append(rev[:rlen])
-                else:
-                    reads1.append(rev[:rlen])
-                    reads2.append(fwd[:rlen])
-        RV = {}
-        RV["reads1"] = reads1
-        RV["reads2"] = reads2
-        return RV
-
     def get_index(self, loc):
+        """get the location and the exon id of a loc on the transcript."""
         RV = [-1, -1]
         if   loc < self.units[0,0]:   RV[:] = [0, -2]
         elif loc > self.units[-1,-1]: RV[:] = [self.ulen-1, -3]
@@ -192,6 +93,16 @@ class TranUnits:
         idx5, idx3 = None, None
         mapq1, idx51, idx31 = 0.0, None, None
         mapq2, idx52, idx32 = 0.0, None, None
+        if self.strand == "+" or self.strand == "1":
+            if r1 is not None and r1.is_reverse:
+                r1, r2 = r2, r1
+            elif r2 is not None and r2.is_reverse == False:
+                r1, r2 = r2, r1
+        else:
+            if r1 is not None and r1.is_reverse == False:
+                r1, r2 = r2, r1
+            elif r2 is not None and r2.is_reverse:
+                r1, r2 = r2, r1
 
         if r1 is not None:
             mapq1 = 1.0 - 10 ** (0 - r1.mapq / 10.0)
@@ -201,7 +112,7 @@ class TranUnits:
             else:
                 idx31 = self.get_index(r1.pos)
                 idx51 = self.get_index(r1.aend - 1)
-            if  idx51[1] == -1 or idx31[1] == -1: return None
+            if idx51[1] == -1 or idx31[1] == -1: return None
             elif idx51[1] >= 0 and idx31[1] >= 0:
                 if (abs(idx51[0] - idx31[0]) + 1 > r1.qlen + 3 or 
                     abs(idx51[0] - idx31[0]) + 1 < r1.qlen - 3): return None
@@ -226,7 +137,22 @@ class TranUnits:
             flen = abs(idx51[0] - idx31[0]) + 1
             if idx51[1] >= 0: idx5 = idx51[0]
         else:
-            flen = abs(idx32[0] - idx51[0]) + 1
+            # flen = abs(idx32[0] - idx51[0]) + 1
+            tmp1 = abs(idx32[0] - idx51[0]) + 1
+            tmp2 = abs(idx31[0] - idx52[0]) + 1
+            flen = max(tmp1, tmp2)
+
+            # if self.strand == "+" and r1.is_reverse:
+            #     print("test1")
+            # if self.strand == "-" and r2.is_reverse:
+            #     print("test2")
+
+            # if abs(idx31[0] - idx52[0]) > abs(idx32[0] - idx51[0]): 
+            #     if abs(idx51[0] - idx52[0]) < 5:
+            #         print("strange!!!!!!", self.strand, r1.is_reverse, idx51[0], idx31[0], idx52[0], idx32[0])
+            #     else:
+            #         print("test", self.strand, r1.is_reverse, idx51[0], idx31[0], idx52[0], idx32[0])
+            
             if idx51[1] >= 0: idx5 = idx51[0]
             if idx32[1] >= 0: idx3 = idx32[0]
             
@@ -237,20 +163,23 @@ class TranUnits:
         RV["prob"] = max(mapq1, mapq2)
         return RV
 
-    def set_reads(self, reads1=[], reads2=[], bias_mode="both"):
+    def set_reads(self, reads1=[], reads2=[], bias_mode="unif",  
+        flen_mean=None, flen_std=None):
         """identify whether a read (pair) or is in this units, and return the 
         identity of the reads in this units, the units specific fragment  
         length bias scores. The bias score can be based on both (mode=both) 
         ends or single end5 (mode=end5) or single end3 (mode=end5), uniform 
         (mode=unif). Make sure the loc of read1 is smaller than read2."""
         if len(reads1) == 0 and len(reads2) == 0:
-            print "Please input paired-end reads or singled end reads!"
+            print("Please input paired-end reads or singled end reads!")
             sys.exit(1)
         elif (len(reads1) * len(reads2)) != 0 and len(reads2) != len(reads1):
-            print "Please input the same number of both mates of the reads!"
+            print("Please input the same number of both mates of the reads!")
             sys.exit(1)
 
         self.rcnt = max(len(reads1), len(reads2))
+        self.idx5 = np.ones(self.rcnt, "float")
+        self.idx3 = np.ones(self.rcnt, "float")
         self.Rmat = np.ones(self.rcnt, "bool")
         self.flen = np.ones(self.rcnt, "float")
         self.proB = np.ones(self.rcnt, "float")
@@ -271,40 +200,41 @@ class TranUnits:
                 self.flen[i] = None
                 self.proB[i] = None
                 self.proU[i] = None
+                self.idx5[i] = None
+                self.idx3[i] = None
             else:
                 self.Rmat[i] = True
                 self.flen[i] = rinfo["flen"]
                 self.proB[i] = rinfo["prob"]
                 self.proU[i] = rinfo["prob"]
+                self.idx5[i] = rinfo["idx5"]
+                self.idx3[i] = rinfo["idx3"]
                 if self.bias_mode == "unif": continue
-                elif self.bias_mode != "end3" and rinfo["idx5"] is not None: 
+                elif self.bias_mode != "end3" and rinfo["idx5"] is not None:
                     self.proB[i] *= self.bias5[rinfo["idx5"]]
-                elif self.bias_mode != "end5" and rinfo["idx3"] is not None: 
+                elif self.bias_mode != "end5" and rinfo["idx3"] is not None:
                     self.proB[i] *= self.bias3[rinfo["idx3"]]
 
         # fragement distribution
-        flen  = self.flen[self.Rmat]
-        mu    = np.mean(flen)
-        sigma = np.std(flen)
-        x     = np.arange(1, self.ulen+1)
-        uniqL = np.unique(flen)
-        Total = sum(self.Rmat) + 0.0
         self.probs = np.zeros(self.ulen)
-        if   Total == 0: self.probs[0] = 1.0
-        elif uniqL.shape[0] >= 10:
-            self.probs[:] = (1 / (sigma*np.sqrt(2*np.pi)) * 
-                             np.exp(-0.5*((x-mu)/sigma)**2))
-            if sum(self.probs) != 0: self.probs = self.probs / sum(self.probs)
+        if sum(self.Rmat) == 0: 
+            self.probs[0] = 1.0
+        elif np.unique(self.flen[self.Rmat]).shape[0] <= 10:
+            for i in np.unique(self.flen[self.Rmat]):
+                # self.probs[int(i)-1] = sum(self.flen[self.Rmat]==i) / (sum(self.Rmat) + 0.0)
+                self.probs[int(i)-1] = np.mean(self.flen==i)
         else:
-            for i in uniqL: 
-                self.probs[i-1] = sum(flen==i) / Total
+            if flen_std is None: flen_std = np.std(self.flen[self.Rmat])
+            if flen_mean is None: flen_mean = np.mean(self.flen[self.Rmat])
+            x = np.arange(1, self.ulen+1)
+            self.probs[:] = normal_pdf(x, flen_mean, flen_std)
+            self.probs = self.probs / sum(self.probs) #if sum(self.probs) != 0:
+             
         # effective length
         self.biasLen = np.zeros(self.ulen)
         for i in range(1, self.ulen+1):
             self.efflen_unif += self.probs[i-1] * (self.ulen-i+1)
-            if self.bias_mode == "unif": continue
-            if self.probs[i-1] == 0:     continue
-
+            if self.bias_mode == "unif" or self.probs[i-1] == 0: continue
             for j in range(self.ulen - i + 1):
                 if self.strand == "+" or self.strand == "1":
                     pos5, pos3 = j, j+i-1
@@ -315,60 +245,28 @@ class TranUnits:
                 else : _bias = self.bias5[pos5] * self.bias3[pos3]
                 self.biasLen[i-1] += _bias
             self.efflen_bias += self.probs[i-1] * self.biasLen[i-1]
-        # print self.flen
+
         # reads probability
         for i in range(self.rcnt):
             if self.Rmat[i] == False: continue
-            fL = self.flen[i]
-            self.proU[i] *= self.probs[fL-1] / (self.ulen - fL + 1)                
+            fL = int(self.flen[i])
+            self.proU[i] *= self.probs[fL-1] / (self.ulen - fL + 1)
             if self.bias_mode != "unif":
                 self.proB[i] *= (self.probs[fL-1] / self.biasLen[fL-1])
-
-
-# class Transcript:
-#     def __init__(self,tran_id,chrom,strand,start,stop,exons):
-#         """a general purpose transcript object with the basic information and
-#         the sequencing reads.
-#         """
-#         self.tranID = tran_id
-#         self.chrom  = chrom
-#         self.strand = strand
-#         self.start  = start
-#         self.stop   = stop
-#         self.exons  = np.sort(np.array(exons).reshape(-1,2), axis=0)
-#         self.seglen = np.array([self.exons[0,1]-self.exons[0,0] + 1,
-#                                 self.exons[1,0]-self.exons[0,1] - 1,
-#                                 self.exons[1,1]-self.exons[1,0] + 1])
-#         if ["-","-1","0",0,-1].count(self.strand) > 0:
-#             self.seglen = self.seglen[::-1]
-
 
 class TranSplice:
     def __init__(self, Gene):
         self.gene = Gene
+        self.stop = Gene.stop
         self.chrom = Gene.chrom
         self.start = Gene.start
-        self.stop = Gene.stop
-        self.initial_unitSet()
-
+        self.unitSet = []
+        for i in range(len(self.gene.trans)):
+            self.unitSet.append(TranUnits(self.gene.trans[i]))
         self.read1p = []
         self.read2p = []
         self.read1u = []
         self.read2u = []
-    def initial_unitSet(self, add_premRNA=False):
-        """set the initial units: pre-mRNA & mature mRNA"""
-        if add_premRNA == True:
-            self.gene.add_premRNA()
-        self.unitSet = []
-        for i in range(len(self.gene.trans)):
-            self.unitSet.append(TranUnits(self.gene.trans[i]))
-        # self.unitSet["u1"] = TranUnits(self.chrom, self.strand, 
-        #                               [self.start, self.stop])
-        # self.unitSet["u2"] = TranUnits(self.chrom, self.strand, self.exons)
-
-    def add_units(self, tranunits):
-        """"add a new state, which is a TranUnits object."""
-        self.unitSet.append(tranunits)
 
     def set_sequence(self, fastafile):
         """get the sequence from the genome sequence in FastaFile object"""
@@ -393,12 +291,12 @@ class TranSplice:
         self.read1u += reads["reads1u"]
         self.read2u += reads["reads2u"]
 
-    def get_ready(self, bias_mode="both"):
+    def get_ready(self, bias_mode="unif"):
         """get the location index of the transcript, need implimentation
         in future. Then, we could remove the Rmat, and flen from ReadSet
         object, and set the Rmat and flen by the info of states."""
-        rcnt  = [len(self.read1p), len(self.read1u), len(self.read2u)]
-        unit_cnt  = len(self.unitSet)
+        rcnt = [len(self.read1p), len(self.read1u), len(self.read2u)]
+        unit_cnt = len(self.unitSet)
         self.Rmat = np.ones((sum(rcnt), unit_cnt), "bool")
         self.flen = np.ones((sum(rcnt), unit_cnt), "float")
         self.proB = np.ones((sum(rcnt), unit_cnt), "float")
@@ -425,22 +323,25 @@ class TranSplice:
                 self.efflen_unif[i] += sum(_units.Rmat) * _units.efflen_unif
                 self.efflen_bias[i] += sum(_units.Rmat) * _units.efflen_bias
 
-            self.efflen_unif[i] /= sum(self.Rmat[:, i])
-            self.efflen_bias[i] /= sum(self.Rmat[:, i])
+            if sum(self.Rmat[:, i]) > 0:
+                self.efflen_unif[i] /= sum(self.Rmat[:, i])
+                self.efflen_bias[i] /= sum(self.Rmat[:, i])
+            else:
+                self.efflen_unif[i] = _units.ulen
+                self.efflen_bias[i] = _units.ulen
 
     def quick_start(self, samfile=None, fastafile=None, biasfile=None):
         """update the state_read after change the transcript information or 
         adding or removing states"""
-        self.initial_unitSet()
         if samfile   is not None: self.set_reads(samfile)
         if fastafile is not None: self.set_sequence(fastafile)
         if biasfile  is not None: self.set_bias(biasfile)
-        print len(self.read1p), len(self.read1u), len(self.read2u)
+        print(len(self.read1p), len(self.read1u), len(self.read2u))
 
         self.get_ready()
-        print "ready"
+        print("ready")
         # try:
         #     self.get_ready()
         # except NameError:
-        #     print "Cannot get ready now; please input necessary info first!"
+        #     print("Cannot get ready now; please input necessary info first!")
 

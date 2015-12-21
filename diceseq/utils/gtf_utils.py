@@ -1,4 +1,3 @@
-
 # This module is to parse the gtf file, whoes format can be found at:
 # www.ensembl.org/info/website/upload/gff.html
 
@@ -15,11 +14,12 @@ class Transcript:
         """
         self.chrom  = chrom
         self.strand = strand
-        self.start  = start
-        self.stop   = stop
+        self.start  = int(start)
+        self.stop   = int(stop)
         self.tranID = tran_id
         self.exons  = np.zeros((0,2), "int")
         self.seglen = None
+        self.tranL  = 0
         self.exonNum = 0
         self.biotype = biotype
         self.tranName = tran_name
@@ -27,12 +27,14 @@ class Transcript:
 
     def add_exon(self,chrom,strand,start,stop):
         if strand != self.strand or chrom != self.chrom:
-            print "The exon has different chrom or strand to the transcript."
+            print("The exon has different chrom or strand to the transcript.")
             return
         _exon = np.array([start, stop], "int").reshape(1,2)
         self.exons = np.append(self.exons, _exon, axis=0)
         self.exons = np.sort(self.exons, axis=0)
+        self.tranL += abs(int(stop) - int(start) + 1)
         self.exonNum += 1
+
 
         self.seglen = np.zeros(self.exons.shape[0] * 2 - 1, "int")
         self.seglen[0] = self.exons[0,1]-self.exons[0,0] + 1
@@ -108,6 +110,7 @@ def ensembl_gtf(anno_in):
             if idx > -1:
                 _gene_id = a_line[8][idx:].split('"')[1].split("\n")[0]
             idx = a_line[8].find("gene_biotype")
+            if idx == -1: idx = a_line[8].find("gene_type")
             if idx > -1:
                 _biotype = a_line[8][idx:].split('"')[1].split("\n")[0]
 
@@ -132,14 +135,20 @@ def ensembl_gtf(anno_in):
             if _gene is not None:
                 _gene.add_transcipt(_tran)
             else:
-                print "Gene is not ready before transcript."
+                print("Gene is not ready before transcript.")
 
         elif a_line[2] == "exon":
+            if a_line[0] != _gene.trans[-1].chrom:
+                print("The exon is on the different chrom from the transcript.")
+                continue
+            if a_line[6] != _gene.trans[-1].strand:
+                print("The exon is on the different strand from the transcript.")
+                continue
             if _gene is not None and len(_gene.trans) > 0:
                 _gene.trans[-1].add_exon(a_line[0],a_line[6],a_line[3],a_line[4])
                 # _gene.gene_ends_update()
             else:
-                print "Gene or transcript is not ready before exon."
+                print("Gene or transcript is not ready before exon.")
 
     if _gene is not None: genes.append(_gene)
     return genes
@@ -241,14 +250,14 @@ def sgd_gtf(anno_in):
             if _gene is not None:
                 _gene.add_transcipt(_tran)
             else:
-                print "Gene is not ready before transcript."
+                print("Gene is not ready before transcript.")
 
         elif a_line[2] == "CDS" or a_line[2] == "noncoding_exon" :
             if _gene is not None and len(_gene.trans) > 0:
                 _gene.trans[-1].add_exon(a_line[0],a_line[6],a_line[3],a_line[4])
                 # _gene.gene_ends_update()
             else:
-                print "Gene or transcript is not ready before exon."
+                print("Gene or transcript is not ready before exon.")
 
     if _gene is not None: genes.append(_gene)
     return genes
@@ -285,7 +294,7 @@ def miso_gtf(anno_in):
                 _tran_name = a_line[8][idx:].split(";")[0].split("=")[1].split("\n")[0]       
             idx = a_line[8].find("ID=")
             if idx > -1:
-                # print a_line[8][idx:]
+                # print(a_line[8][idx:])
                 _tran_id = a_line[8][idx:].split(";")[0].split("=")[1].split("\n")[0]
             _tran = Transcript(a_line[0], a_line[6], a_line[3], a_line[4],
                                _tran_id, _tran_name, _biotype)
@@ -293,14 +302,14 @@ def miso_gtf(anno_in):
             if _gene is not None:
                 _gene.add_transcipt(_tran)
             else:
-                print "Gene is not ready before transcript."
+                print("Gene is not ready before transcript.")
 
         elif a_line[2] == "exon":
             if _gene is not None and len(_gene.trans) > 0:
                 _gene.trans[-1].add_exon(a_line[0],a_line[6],a_line[3],a_line[4])
                 # _gene.gene_ends_update()
             else:
-                print "Gene or transcript is not ready before exon."
+                print("Gene or transcript is not ready before exon.")
     
     if _gene is not None: genes.append(_gene)
     return genes

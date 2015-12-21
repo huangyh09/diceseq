@@ -1,84 +1,99 @@
 # This module is to estimate the sequence or position biases. It provides
 # ways to access and save the bias parameters.
 
-import h5py
+import pysam
 import numpy as np
+import pylab as pl
+
+def norm_pdf(x, mu, sigma):
+    return 1 / (sigma*np.sqrt(2*np.pi)) * np.exp(-1/2*((x-mu)/sigma)**2)
 
 class FastaFile:
     """docstring for FastaFile"""
     def __init__(self, fasta_file):
-        fid = open(fasta_file,"r")
-        all_lines = fid.readlines()
-        fid.close()
-        seq, self.ref, self.seq = "", [], []
-        for line in all_lines:
-            line = line.split("\n")[0]
-            if len(self.ref) == 0 and line[0] != ">": continue
-            if line.startswith(">"):
-                self.ref.append(line[1:].split(" ")[0])
-                if seq == "": continue
-                self.seq.append(seq)
-                seq = ""
-            else:
-                seq = seq + line
-        self.seq.append(seq)
+        self.f = pysam.FastaFile(fasta_file)
 
     def get_seq(self, qref, start, stop):
-        """get the sequence in a given region, the start is from 1"""
-        try:
-            idx = self.ref.index(qref.split("chr")[-1])
-        except ValueError:
-            try:
-                idx = self.ref.index("chr" + qref.split("chr")[-1])
-            except ValueError:
-                print "No reference id as the query: %s" %qref
-                return None
-        try:
-            RV = self.seq[idx][start-1 : stop]
-        except ValueError:
-            print "Wrong start or stop position: %d, %d" %(start, stop)
-            return None
-        return RV
+        """get the sequence in a given region, the start is from 1.
+        The start and stop index may still need double check."""
+        return self.f.fetch(qref, start-1, stop)
 
 class BiasFile:
     """docstring for BiasFile"""
     def __init__(self, bias_file=None):
         """get the bias parameters from the hdf5 file"""
-        if bias_file is None:
-            self.initial_bias()
-            return
-        f = h5py.File(bias_file, "r")
-        self.chain_len  = list(f["chain_len"])
-        self.percentile = np.array(f["percentile"])
-        # self.pos5_bias  = np.array(f["pos5_bias"]) / np.array(f["pos5_unif"])
-        # self.pos3_bias  = np.array(f["pos3_bias"]) / np.array(f["pos3_unif"])
-        self.pos5_bias  = np.array(f["pos5_bias"])
-        self.pos3_bias  = np.array(f["pos3_bias"])
-        self.pos5_unif  = np.array(f["pos5_unif"])
-        self.pos3_unif  = np.array(f["pos3_unif"])
-        self.pos5_prob  = self.pos5_bias / self.pos5_unif
-        self.pos3_prob  = self.pos3_bias / self.pos3_unif
-        
-        idx5 = np.where(self.pos5_prob < 0)
-        idx3 = np.where(self.pos3_prob < 0)
-        self.pos5_prob[idx5] = 0
-        self.pos3_prob[idx3] = 0
+        self.set_base_chain()
+        self.pos5_bias = np.zeros((5, 20))
+        self.pos3_bias = np.zeros((5, 20))
+        self.pos5_unif = np.zeros((5, 20))
+        self.pos3_unif = np.zeros((5, 20))
+        self.pos5_prob = np.zeros((5, 20))
+        self.pos3_prob = np.zeros((5, 20))
+        self.percentile = np.zeros((5, 2))
+        self.flen_mean, self.flen_std = 200, 20
 
-        self.base_chain = {}
         self.seq5_bias, self.seq3_bias = {}, {}
         self.seq5_unif, self.seq3_unif = {}, {}
         self.seq5_prob, self.seq3_prob = {}, {}
+        for i in range(len(self.chain_len)):
+            self.seq5_bias[str(i)] = np.zeros(4**self.chain_len[i])
+            self.seq3_bias[str(i)] = np.zeros(4**self.chain_len[i])
+            self.seq5_unif[str(i)] = np.zeros(4**self.chain_len[i])
+            self.seq3_unif[str(i)] = np.zeros(4**self.chain_len[i])
+            self.seq5_prob[str(i)] = np.zeros(4**self.chain_len[i])
+            self.seq3_prob[str(i)] = np.zeros(4**self.chain_len[i])
+        
+        if bias_file is None: return
+        
+        fid = open(bias_file, "r")
+        all_lines = fid.readlines()
+        fid.close()
+        
+        self.flen_mean = float(all_lines[4].split("\t")[0])
+        self.flen_std = float(all_lines[4].split("\t")[1])
+        for i in range(5,105):
+            a, b = (i-5) // 20, (i-5) % 20
+            if b == 0:
+                self.percentile[a,:] = all_lines[i].split("|")[0].split("-")
+            self.pos5_bias[a,b] = all_lines[i].split("\t")[1]
+            self.pos3_bias[a,b] = all_lines[i].split("\t")[2]
+            self.pos5_unif[a,b] = all_lines[i].split("\t")[3]
+            self.pos3_unif[a,b] = all_lines[i].split("\t")[4]
+            self.pos5_prob[a,b] = max(0, self.pos5_bias[a,b] / self.pos5_unif[a,b])
+            self.pos3_prob[a,b] = max(0, self.pos3_bias[a,b] / self.pos3_unif[a,b])
+        
+        ii, cnt = all_lines[105].split("|")[0], -1
+        for i in range(105,849):
+            if ii == all_lines[i].split("|")[0]: 
+                cnt += 1
+            else:
+                ii = all_lines[i].split("|")[0]
+                cnt = 0
+            self.seq5_bias[ii][cnt] = all_lines[i].split("\t")[1]
+            self.seq3_bias[ii][cnt] = all_lines[i].split("\t")[2]
+            self.seq5_unif[ii][cnt] = all_lines[i].split("\t")[3]
+            self.seq3_unif[ii][cnt] = all_lines[i].split("\t")[4]
+            self.seq5_prob[ii][cnt] = max(0, self.seq5_bias[ii][cnt] / self.seq5_unif[ii][cnt])
+            self.seq3_prob[ii][cnt] = max(0, self.seq3_bias[ii][cnt] / self.seq3_unif[ii][cnt])
+            self.base_chain[ii][cnt] = all_lines[i].split("\t")[0].split("|")[1]
+            
+    def set_base_chain(self):
+        """set the sub-base chain for the variable-length Markov model (VLMM),
+        which was proposed by Reberts et al, Genome Biology, 2011: 
+        Figure2 in supp 3. http://genomebiology.com/2011/12/3/r22/"""
+        b1 = ["A","T","G","C"]
+        b2, b3 = [], []
+        for i in b1:
+            for j in b1:
+                b2.append(j+i)
+                for k in b1:
+                    b3.append(k+j+i)
+        base_comb = [b1, b2, b3]
+
+        self.chain_len = [1]*4 + [2]*3 + [3]*10 + [2]*2 + [1]*2
+        self.base_chain = {}
         for i in range(21):
-            self.seq5_bias[str(i)] = np.array(f["seq5_bias/" + str(i)])
-            self.seq3_bias[str(i)] = np.array(f["seq3_bias/" + str(i)])
-            self.seq5_unif[str(i)] = np.array(f["seq5_unif/" + str(i)])
-            self.seq3_unif[str(i)] = np.array(f["seq3_unif/" + str(i)])
-            self.seq5_prob[str(i)] = (self.seq5_bias[str(i)] / 
-                                      self.seq5_unif[str(i)])
-            self.seq3_prob[str(i)] = (self.seq3_bias[str(i)] / 
-                                      self.seq3_unif[str(i)])
-            self.base_chain[str(i)]= list(f["base_chain/" + str(i)])
-        f.close()
+            self.base_chain[str(i)] = base_comb[self.chain_len[i]-1]
 
     def get_both_bias(seq, loc, ulen, end_num=5):
         """get the bias from the bias parameters"""
@@ -93,7 +108,7 @@ class BiasFile:
         elif end_num == 3:
             parameters = self.seq3_prob
         else:
-            print "wrong end_num: %s" %str(end_num)
+            print("wrong end_num: %s" %str(end_num))
             return None
 
         prob = 1.0
@@ -112,7 +127,7 @@ class BiasFile:
         elif end_num == 3:
             parameters = self.pos3_prob
         else:
-            print "wrong end_num: %s" %str(end_num)
+            print("wrong end_num: %s" %str(end_num))
             return None
 
         bin1 = (ulen >= self.percentile[:,0]) * (ulen <= self.percentile[:,1])
@@ -133,39 +148,6 @@ class BiasFile:
                 self.percentile[i,0] = 0
             elif i==4:
                 self.percentile[i,1] = float("inf")
-
-    def set_base_chain(self):
-        """set the sub-base chain for the variable-length Markov model (VLMM),
-        which was proposed by Reberts et al, Genome Biology, 2011: 
-        Figure2 in supp 3. http://genomebiology.com/2011/12/3/r22/"""
-        b1 = ["A","T","G","C"]
-        b2, b3 = [], []
-        for i in b1:
-            for j in b1:
-                b2.append(j+i)
-                for k in b1:
-                    b3.append(k+j+i)
-        base_comb = [b1, b2, b3]
-
-        self.chain_len = [1]*4 + [2]*3 + [3]*10 + [2]*2 + [1]*2
-        self.base_chain = {}
-        for i in range(21):
-            self.base_chain[str(i)] = base_comb[self.chain_len[i]-1]
-
-    def initial_bias(self):
-        self.set_base_chain()
-        self.pos5_bias = np.zeros((5, 20))
-        self.pos3_bias = np.zeros((5, 20))
-        self.pos5_unif = np.zeros((5, 20))
-        self.pos3_unif = np.zeros((5, 20))
-
-        self.seq5_bias, self.seq3_bias = {}, {}
-        self.seq5_unif, self.seq3_unif = {}, {}
-        for i in range(len(self.chain_len)):
-            self.seq5_bias[str(i)] = np.zeros(4**self.chain_len[i])
-            self.seq3_bias[str(i)] = np.zeros(4**self.chain_len[i])
-            self.seq5_unif[str(i)] = np.zeros(4**self.chain_len[i])
-            self.seq3_unif[str(i)] = np.zeros(4**self.chain_len[i])
 
     def set_both_bias(self, seq, loc, ulen, weight, end_num=5, mode="bias"):
         """get the bias from the bias parameters"""
@@ -205,184 +187,101 @@ class BiasFile:
             elif mode == "unif":
                 self.pos3_unif[bin1, bin2] += weight
 
-    def save_file(self, out_file):
-        f = h5py.File(out_file, "w")
-        f["percentile"] = self.percentile
-        f["pos5_bias"] = self.pos5_bias
-        f["pos3_bias"] = self.pos3_bias
-        f["pos5_unif"] = self.pos5_unif
-        f["pos3_unif"] = self.pos3_unif
-        f["chain_len"] = self.chain_len
-        for i in range(21):
-            f["seq5_bias/"+str(i)]  = self.seq5_bias[str(i)]
-            f["seq3_bias/"+str(i)]  = self.seq3_bias[str(i)]
-            f["seq5_unif/"+str(i)]  = self.seq5_unif[str(i)]
-            f["seq3_unif/"+str(i)]  = self.seq3_unif[str(i)]
-            f["base_chain/"+str(i)] = self.base_chain[str(i)]
-        f.close()
+    def save_file(self, out_file="out_file.bias"):
+        """to save the bias file in BIAS FILE FORMAT"""
+        fid = open(out_file, "w")
+        fid.writelines("# BIAS PARAMETER FORMAT\n")
+        fid.writelines("# fragment length: 2 (mean, std), line 5\n")
+        fid.writelines("# position bias: 5*20*4 (name, b5, b3, u5, u3), line 6-105\n")
+        fid.writelines("# sequence bias: 744*4 (name, b5, b3, u5, u3), line 106-849\n")
+        fid.writelines("%.2f\t%.2f\n" %(self.flen_mean, self.flen_std))
+        for i in range(self.pos5_bias.shape[0]):
+            for j in range(self.pos5_bias.shape[1]):
+                aLine = ("%.0f-%.0f|%d\t%.2e\t%.2e\t%.2e\t%.2e\n"
+                         %(self.percentile[i,0], self.percentile[i,1], j, self.pos5_bias[i,j], 
+                           self.pos3_bias[i,j], self.pos5_unif[i,j], self.pos3_unif[i,j]))
+                fid.writelines(aLine)
+        for i in sorted(self.base_chain.keys(), key=float):
+            for j in range(len(self.base_chain[i])):
+                aLine = ("%s|%s\t%.2e\t%.2e\t%.2e\t%.2e\n"
+                         %(i, self.base_chain[i][j], self.seq5_bias[i][j], 
+                           self.seq3_bias[i][j], self.seq5_unif[i][j], self.seq3_unif[i][j]))
+                fid.writelines(aLine)
+        fid.close()
 
 
-def load_refseq(refseq_file):
-    """
-    Load the fasta file
-    Parameters
-    ----------
-    refseq_file: a fasta file name
-    Returns
-    -------
-    ref_chr: list, string
-        the name of chromesomes
-    ref_seq: list, string
-        the sequence of chromesomes
-    """
-    #1. open file and read lines
-    fid = open(refseq_file,"r")
-    all_lines = fid.readlines()
-    fid.close()
-    #2. process all lines
-    ref_chr, ref_seq = [], []
-    seq = ""
-    for line in all_lines:
-        line = line.split()[0]
-        if line.startswith( ">" ):
-            ref_chr.append(line[1:])
-            if seq == "":
-                continue
-            ref_seq.append(seq)
-            seq = ""
-        else:
-            seq = seq + line
-    ref_seq.append(seq)
-    #3.reture chrom and sequence
-    return ref_chr, ref_seq
+    def plot_bias(self, mode=None):
+        """plot of bias parameters: flen, pos5, pos3, seq5, seq3"""
+        #fragment distribution
+        if mode == "flen":
+            xx = np.arange(0, 1000)
+            yy = norm_pdf(xx, self.flen_mean, self.flen_std)
+            pl.fill(xx, yy, 'k')#, linewidth=2.0)
+            pl.xlabel("fragment length")
+            pl.ylabel("$p(L)$")
+            pl.xlim(0, 400)
 
-    
-def get_percentile(tran_len, K=5):
-    """
-    Calculate the percentiles with K parts
-    Parameters
-    ----------
-    tran_len : numpy array, (N,)
-        the length of N transcripts, >0
-    K : int
-        the number of parts for percentiles
-    Returns
-    -------
-    percentile: numpy array, (K, 2)
-        percentile of the transcript length
-    """
-    perc_gap = np.linspace(0, 100, K+1)
-    _percent = np.percentile(tran_len, list(perc_gap))
-    percentile = np.zeros((K,2))
-    for i in range(K):
-        percentile[i,0] = int(_percent[i])+1
-        percentile[i,1] = int(_percent[i+1])
-        if i == 0:
-            percentile[i,0] = 0
-        elif i==4:
-            percentile[i,1] = float("inf")
-    return percentile
+        #position bias
+        if mode == "pos5" or mode == "pos3":
+            pl.plot(np.arange(20), np.ones(20), '--k')
+            for i in range(5):
+                _label="bin%d: %.0f-%.0f bp" %(i+1, self.percentile[i,0], self.percentile[i,1])
+                if mode == "pos5":
+                    pl.plot(np.arange(20)+0.5, self.pos5_prob[i,:], linewidth=2.0, label=_label)
+                else:
+                    pl.plot(np.arange(20)+0.5, self.pos3_prob[i,:], linewidth=2.0, label=_label)
+            pl.legend(loc="best")
+            pl.xlabel("fractional transcription position")
+            pl.ylabel("bias weight")
+            pl.ylim(0,2)
 
-def position_bias(end_pos, percentile, tran_len):
-    """
-    Calculate the weights of proportion bias for 5'/3' fragment ends
-    Parameters
-    ----------
-    end_pos : numpy array, (N,)
-        5'/3'-end positions; N: total number of reads
-    percentile : numpy array, (K, 2)
-        the given percentiles, K is set as 5
-    tran_len : numpy array, (N,)
-        the length of N transcripts, >0
-    Returns
-    -------
-    parameters: numpy array, (5, 20)
-        percentages of end postions in each of the 20 bins
-    """
-    parameters = np.zeros((5,20), "float")
-    try:
-        if len(tran_len) == 1:
-            tran_len = np.ones(len(end_pos), "int") * tran_len[0]
-    except:
-        tran_len = np.ones(len(end_pos), "int") * tran_len
-    for i in range(len(end_pos)):
-        if tran_len[i] <= 0:
-            break
-        idx_bin1 = (tran_len[i] >= percentile[:,0]) * (tran_len[i] <= percentile[:,1])
-        idx_bin2 = 20.0 * end_pos[i] / tran_len[i]
-        # print end_pos[i], tran_len[i]
-        if idx_bin2 < 20:
-            idx_bin2 = int(idx_bin2)
-        elif idx_bin2 == 20:
-            idx_bin2 = 19
-        elif idx_bin2 > 20:
-            continue
-        parameters[idx_bin1, idx_bin2] += 1
-    return parameters
+        #sequence bias
+        if mode == "seq5" or mode == "seq3":
+            base = ["A", "T", "G", "C"]
+            _color = ["g", "r", "orange", "b"]
+            if mode == "seq5":
+                pl.plot(np.arange(21)-8, np.ones(21), '--k')
+                pl.plot(np.zeros(2), np.array([0, 2.0]), '--k', linewidth=2.0)
+                percent = np.zeros((4,21))
+                for i in range(4):
+                    for j in range(21):
+                        _seq_bias = self.seq5_prob[str(j)]
+                        percent[i,j] = np.sum(_seq_bias[i*4**(self.chain_len[j]-1): 
+                            (i+1)*4**(self.chain_len[j]-1)]) / 4**(self.chain_len[j]-1)
+                    pl.plot(np.arange(21)-8, percent[i,:], ":o", c=_color[i], label=base[i])
+                pl.xlabel("offset from 3' fragment end")
+                pl.xlim(-8,12)
+            else:
+                pl.plot(np.arange(21)-12, np.ones(21), '--k')
+                pl.plot(np.zeros(2), np.array([0, 2.0]), '--k', linewidth=2.0)
+                percent = np.zeros((4,21))
+                for i in range(4):
+                    for k in range(21):
+                        j = 20 - k
+                        _seq_bias = self.seq3_prob[str(j)]
+                        percent[i,j] = np.sum(_seq_bias[i*4**(self.chain_len[j]-1): 
+                            (i+1)*4**(self.chain_len[j]-1)]) / 4**(self.chain_len[j]-1)
+                    pl.plot(np.arange(21)-12, percent[i,:], ":o", c=_color[i], label=base[i])
+                pl.xlabel("offset from 3' fragment end")
+                pl.xlim(-12,8)
+            pl.legend(loc="best")
+            pl.xlabel("offset from %s' fragment end" %mode[3])
+            pl.ylabel("bias weight")
+            pl.ylim(0.5,2)
 
-def get_base_chain():
-    """
-    discribe the VLMM
-    Set the sub-base chain for the variable-length Markov model
-    Returns
-    -------
-    chain_len: list of int, len = 21
-        the length of each sub-base chain
-    base_chain: list of string, len = 21
-        the sub-base chain for each 21 positions with different length
-    """
-    b1 = ["A","T","G","C"]
-    b2, b3 = [], []
-    for i in b1:
-        for j in b1:
-            b2.append(j+i)
-            for k in b1:
-                b3.append(k+j+i)
-    base_comb = [b1, b2, b3]
-
-    chain_len = [1]*4 + [2]*3 + [3]*10 + [2]*2 + [1]*2
-    base_chain = {}
-    for i in range(21):
-        base_chain[str(i)] = base_comb[chain_len[i]-1]
-    return chain_len, base_chain
-
-def sequence_bias(ref_seq, end_pos, chain_len, base_chain, strand, end):
-    """
-    Calculate the weights of sequence bias for 5'/3' fragment ends
-    Parameters
-    ----------
-    ref_seq: string
-        the sequence of a chromesome
-    end_pos : numpy array, (N,)
-        N 5'/3'-end positions on the chromesome
-    chain_len: list of int, len = 21
-        the length of each sub-base chain
-    base_chain: list of string, len = 21
-        the sub-base chain for each 21 positions with different length
-    strand: "+/-" or "1/-1", string
-        the strand of the transcripts
-    end: 5 or 3, int
-        the end of the fragment
-    Returns
-    -------
-    parameters: structure, 21 items with variable-length list as element
-        weights of each sub-base chain on specific position
-    """
-    parameters = {}
-    for i in range(21):
-        parameters[str(i)] = np.zeros(4**chain_len[i])
-
-    for i in range(len(end_pos)):
-        if end == 5 and (strand == "+" or strand == "1"):
-            if end_pos[i]<8 or end_pos[i]>len(ref_seq)-13-1:
-                continue
-            _seq = ref_seq[end_pos[i]-8 : end_pos[i]+13]
-        else:
-            if end_pos[i]<12 or end_pos[i]>len(ref_seq)-9-1:
-                continue
-            _seq = ref_seq[end_pos[i]-12 : end_pos[i]+9][::-1]
-        for j in range(len(_seq)):
-            _bases = _seq[j-chain_len[j]+1 : j+1]
-            _base_idx = base_chain[str(j)].index(_bases)
-            parameters[str(j)][_base_idx] += 1
-    return parameters
+        #legend only
+        if mode == "legend":
+            base = ["A", "T", "G", "C"]
+            _color = ["g", "r", "orange", "b"]
+            pl.axis('off')
+            ax1 = pl.twinx()
+            for i in range(len(base)):
+                ax1.plot([], [], "o", c=_color[i], label=base[i])
+            ax1.legend(numpoints=1, loc=4)
+            ax1.axis('off')
+            ax2 = pl.twinx()
+            for i in range(5):
+                _label="bin%d: %.0f-%.0f bp" %(i+1, self.percentile[i,0], self.percentile[i,1])
+                ax2.plot([], [], linewidth=2.0, label=_label)
+            ax2.legend(loc=3)
+            ax2.axis('off')

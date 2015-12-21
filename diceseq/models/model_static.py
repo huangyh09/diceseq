@@ -24,13 +24,13 @@ def logistic_normal_pdf(D, mu, cov, log=False):
         The probability density of D.
     """
     if len(D.shape) > 1:
-        print "Only one array is calculated each time."
+        print("Only one array is calculated each time.")
         return None
     D_logit = np.log(D[:-1]/D[-1]) - mu
     cov_inv = np.linalg.inv(cov)
     cov_det = np.linalg.det(cov)
     if cov_det < 0:
-        print "The det of covariance is negative, please check!"
+        print("The det of covariance is negative, please check!")
         return None
     RV = (-0.5*np.log(2*np.pi*cov_det) - np.sum(np.log(D)) - 
            0.5*np.dot(np.dot(D_logit, cov_inv), D_logit))
@@ -57,7 +57,7 @@ def Dirichlet_pdf(D, alpha, log=False):
         The probability density of D.
     """
     if len(D.shape) > 1:
-        print "Only one array is calculated each time."
+        print("Only one array is calculated each time.")
         return None
     part2 = 0
     for i in range(len(alpha)):
@@ -160,7 +160,7 @@ def Psi_MCMC_MH(R_mat, len_isos, prob_isos, cov_fixed, alpha_Dir, M=100000, star
 
         # step 2: calculate the MH ratio, accept or reject the proposal
         alpha = min(np.exp(P_try+Q_now-P_now-Q_try), 1)
-        if alpha is None: print "alpha is none!"
+        if alpha is None: print("alpha is none!")
         elif np.random.rand(1) < alpha:
             mu_now  = mu_try  + 0
             psi_now = psi_try + 0
@@ -198,10 +198,10 @@ def Psi_junction(R_mat, len_juncts):
     """
     N, K = R_mat.shape
     if R_mat.shape[1] != len_juncts.shape[0]:
-        print "The number of isoforms in the reads and junction lengths are different!"
+        print("The number of isoforms in the reads and junction lengths are different!")
         return [None] * K
     if np.sum(R_mat) == 0:
-        print "No junction reads!"
+        print("No junction reads!")
         return [None] * K
     Dens = np.sum(R_mat, axis=0) / len_juncts.astype("float")
     RV = Dens / np.sum(Dens)

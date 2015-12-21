@@ -5,12 +5,12 @@ import sys
 import h5py
 import pysam
 import numpy as np
-from optparse import OptionParser
-from models.model_static import Psi_MCMC_MH
-from utils.gtf_utils import load_annotation
-from utils.bias_utils import BiasFile, FastaFile
-from utils.sam_utils import load_samfile, fetch_reads
-from utils.tran_utils import TranUnits, Transcript, TranSplice
+from .optparse import OptionParser
+from .models.model_static import Psi_MCMC_MH
+from .utils.gtf_utils import load_annotation
+from .utils.bias_utils import BiasFile, FastaFile
+from .utils.sam_utils import load_samfile, fetch_reads
+from .utils.tran_utils import TranUnits, Transcript, TranSplice
 
 def get_CI(data, percent=0.95):
     if len(data.shape) == 0:
@@ -41,12 +41,12 @@ def main():
 
     (options, args) = parser.parse_args()
     if options.anno_file == None:
-        print "Error: need --anno_file for annotation."
+        print("Error: need --anno_file for annotation.")
         sys.exit(1)
     else:
         anno = load_annotation(options.anno_file)
     if options.sam_file == None:
-        print "Error: need --sam_file for reads indexed and aliged reads."
+        print("Error: need --sam_file for reads indexed and aliged reads.")
         sys.exit(1)
     else:
         sam_list = options.sam_file.split("---")
@@ -70,7 +70,7 @@ def main():
     if bias_file is None: biasFile = None
     else: biasFile = BiasFile(bias_file)
 
-    print "Welcome to diceseq static model! %d genes are under estimating." %len(gene_list)
+    print("Welcome to diceseq static model! %d genes are under estimating." %len(gene_list))
 
     fid = open(out_file, "w")
     head_line = "gene_id\tgene_name\t"
@@ -95,7 +95,7 @@ def main():
         _chrom  = str(anno["chrom"][i])
         _start  = anno["gene_start"][i]
         _stop   = anno["gene_stop"][i]
-        # print g, _gene, _chrom, _start, _stop, _strand
+        # print (g, _gene, _chrom, _start, _stop, _strand)
 
         # t = TranSplice(_gene, _chrom, _strand, _start, _stop, _exons)
         # t.initial_unitSet()
@@ -120,7 +120,7 @@ def main():
         t.get_ready(bias_mode)
         count = len(t.read1p) + len(t.read1u) + len(t.read2u)
         if count == 0:
-            print "No reads for %s" %anno["gene_id"][i]
+            print("No reads for %s" %anno["gene_id"][i])
             tmp = []; tmp[:] = ["nan"] * 5; tmp[0] = "0"
             a_line = anno["gene_id"][i] + "\t" + anno["gene_name"][i]
             a_line = a_line + "\t" + "\t".join(tmp) + "\n"

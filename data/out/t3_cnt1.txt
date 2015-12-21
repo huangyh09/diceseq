@@ -1,6 +1,6 @@
 gene_id	gene_name	biotype	count	RPK
-YMR116C	ASC1	protein_coding	200	162.21
-YNL112W	DBP2	protein_coding	358	135.45
-YOL120C	RPL18A	protein_coding	128	126.98
-YKL006W	RPL14A	protein_coding	86	105.52
-YDR381W	YRA1	protein_coding	158	109.19
+YMR116C	ASC1	protein_coding	100	81.10
+YNL112W	DBP2	protein_coding	179	67.73
+YOL120C	RPL18A	protein_coding	64	63.49
+YKL006W	RPL14A	protein_coding	43	52.76
+YDR381W	YRA1	protein_coding	80	55.29

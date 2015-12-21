@@ -32,7 +32,7 @@ class ReadSet(object):
                 #Note: still need improvement on the mismatched bases
                 for _qbase in qual_bases:
                     self.prob[i,s] = self.prob[i,s]*(1-10**(-ord(_qbase)/10.0))
-                # if r.rlen < (r.aend - r.pos): print r.rlen, r.aend, r.pos
+                # if r.rlen < (r.aend - r.pos): print(r.rlen, r.aend, r.pos)
 
     def get_loc_idx(self, exons, strand, overhang=1):
         """get the index on exon or intron"""

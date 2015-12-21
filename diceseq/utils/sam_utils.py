@@ -8,9 +8,9 @@ def load_samfile(sam_file):
     """To load an indexed bam file"""
     ftype = sam_file.split(".")[-1]
     if ftype != "bam" and ftype != "sam":
-        print "Error: file type need suffix of bam or sam."
+        print("Error: file type need suffix of bam or sam.")
         sys.exit(1)
-    print "Loading a %s" %ftype + " with file name: %s" %sam_file
+    print("Loading a %s" %ftype + " with file name: %s" %sam_file)
     if ftype == "bam":
         samfile = pysam.Samfile(sam_file, "rb")
     else:
@@ -62,10 +62,10 @@ def fetch_reads(samfile, chrom, start, end, rm_duplicate=True, inner_only=True,
         reads = samfile.fetch(chrom, start, end)
 
     except ValueError:
-        print "Cannot fetch reads in region: %s:%d-%d" %(chrom, start, end)
+        print("Cannot fetch reads in region: %s:%d-%d" %(chrom, start, end))
     except AssertionError:
-        print "AssertionError in region: %s:%d-%d" %(chrom, start, end)
-        print "  - Check that your BAM file is indexed!"
+        print("AssertionError in region: %s:%d-%d" %(chrom, start, end))
+        print(" - Check that your BAM file is indexed!")
 
     #part 2. get reads and filter some of them
     qname1, qname2 = [], []
@@ -91,6 +91,26 @@ def fetch_reads(samfile, chrom, start, end, rm_duplicate=True, inner_only=True,
         else:
             reads1.append(r)
             qname1.append(r.qname)
+
+    #part 2.1 chech the mate reads' query
+    FLAG = True
+    if len(qname1) > 0:
+        for i in range(len(qname1)-1):
+            if qname1[i][-1] != qname1[i+1][-1]:
+                FLAG = False
+                break
+    if FLAG and len(qname2) > 0:
+        for i in range(len(qname1)-1):
+            if qname1[i][-1] != qname1[i+1][-1]:
+                FLAG = False
+                break
+
+    if FLAG:
+        for i in range(len(qname1)):
+            qname1[i] = qname1[i][:-1]
+        for i in range(len(qname2)):
+            qname2[i] = qname2[i][:-1]
+
 
     # part 3. mate the reads
     rv_reads1, rv_reads2 = [], []

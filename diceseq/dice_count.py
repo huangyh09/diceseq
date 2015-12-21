@@ -11,12 +11,12 @@ import h5py
 import pysam
 import numpy as np
 from optparse import OptionParser
-from utils.reads_utils import ReadSet
-from utils.gtf_utils import load_annotation
-from utils.sam_utils import load_samfile, fetch_reads
+from .utils.reads_utils import ReadSet
+from .utils.gtf_utils import load_annotation
+from .utils.sam_utils import load_samfile, fetch_reads
 
 def main():
-    print "Welcome to dice-count!"
+    print("Welcome to dice-count!")
 
     #part 0. parse command line options
     parser = OptionParser()
@@ -55,12 +55,12 @@ def main():
     (options, args) = parser.parse_args()
     anno_source = options.anno_source
     if options.anno_file == None:
-        print "Error: need --anno_file for annotation."
+        print("Error: need --anno_file for annotation.")
         sys.exit(1)
     else:
         anno = load_annotation(options.anno_file, anno_source)
     if options.sam_file == None:
-        print "Error: need --sam_file for reads indexed and aliged reads."
+        print("Error: need --sam_file for reads indexed and aliged reads.")
         sys.exit(1)
     else:
         samFile = load_samfile(options.sam_file)
@@ -161,9 +161,9 @@ def main():
         fid.writelines(a_line)
 
         if g_cnt % 100 == 0 and g_cnt != 0:
-            print "%d genes have been processed." %g_cnt
+            print("%d genes have been processed." %g_cnt)
     fid.close()
-    print "%d genes have been processed. Done!" %g_cnt
+    print("%d genes have been processed. Done!" %g_cnt)
 
 if __name__ == "__main__":
     main()

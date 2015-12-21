@@ -2,16 +2,15 @@
 # isoform proportions ratio for each gene at all time points.
 
 import sys
-import h5py
-import pysam
+import gzip
 import numpy as np
 from optparse import OptionParser
-from models.model_GP import Psi_GP_MH
-from models.model_static import Psi_MCMC_MH
-from utils.gtf_utils import load_annotation
-from utils.bias_utils import BiasFile, FastaFile
-from utils.sam_utils import load_samfile, fetch_reads
-from utils.tran_utils import TranUnits, Transcript, TranSplice
+from .models.model_GP import Psi_GP_MH, Psi_EM, EM_filter, EM_bootstrap
+from .models.model_static import Psi_MCMC_MH
+from .utils.gtf_utils import load_annotation
+from .utils.bias_utils import BiasFile, FastaFile
+from .utils.sam_utils import load_samfile, fetch_reads
+from .utils.tran_utils import TranUnits, TranSplice
 
 def get_CI(data, percent=0.95):
     if len(data.shape) == 0:
@@ -31,8 +30,16 @@ def harmonic_mean_log(data, log_in=True, log_out=True):
     if log_out is not True: RV = np.exp(RV)
     return RV
 
+def Psi2Y(Psi):
+    Psi = Psi / np.sum(Psi)
+    Y = np.zeros(len(Psi))
+    Y[:-1] = np.log(Psi[:-1] / Psi[-1])
+    return Y
+
 def main():
-    print "Welcome to diceseq GP model!"
+    import warnings
+    warnings.filterwarnings('error')
+    print("Welcome to diceseq GP model!")
 
     #part 0. parse command line options
     parser = OptionParser()
@@ -51,14 +58,14 @@ def main():
         help="The genome reference file in fasta format. This is necessary\
         for bias correction, otherwise uniform mode will be used.")
     parser.add_option("--bias_file", "-b", dest="bias_file", default=None,
-        help="The parameter file for bias in hdf5 format")
+        help="The file for bias parameter")
     parser.add_option("--gene_file", "-g", dest="gene_file",
         help="The list genes in use. It is the gene id in the gtf annotation.")
     parser.add_option("--out_file", "-o", dest="out_file",
         default="diceseq_out", help="The prefix of the output file. There will\
-        be two files: one in plain text format, the other in hdf5 format")
-    parser.add_option("--out_h5", dest="out_h5", default="True",
-        help="whether save a hdf5 file as well.")
+        be two files: one in plain text format, the other in gzip format")
+    # parser.add_option("--save_sample", dest="save_sample", default="True",
+    #     help="whether save the sample file as well.")
     parser.add_option("--sample_num", dest="sample_num", default="500",
         help="The number of MCMC samples to save.")
     parser.add_option("--bias_mode", dest="bias_mode", default="unif", 
@@ -74,12 +81,12 @@ def main():
 
     (options, args) = parser.parse_args()
     if options.anno_file == None:
-        print "Error: need --anno_file for annotation."
+        print("Error: need --anno_file for annotation.")
         sys.exit(1)
     else:
         anno = load_annotation(options.anno_file, options.anno_source)
     if options.sam_list == None:
-        print "Error: need --sam_list for reads indexed and aliged reads."
+        print("Error: need --sam_list for reads indexed and aliged reads.")
         sys.exit(1)
     else:
         sam_list = options.sam_list.split("---")
@@ -101,10 +108,10 @@ def main():
     out_file  = options.out_file
     bias_file = options.bias_file
     bias_mode = options.bias_mode
-    out_h5    = options.out_h5 == "True"
     is_twice  = options.is_twice == "True"
     sample_num = int(options.sample_num)
     add_premRNA = options.add_premRNA == "True"
+    # save_sample = options.save_sample == "True"
     theta1 = float(options.theta1_fix)
     try: theta2 = float(options.theta2_fix)
     except ValueError: theta2 = None
@@ -112,33 +119,31 @@ def main():
     if ref_file is None: 
         if bias_mode != "unif":
             bias_mode = "unif"
-            print "No reference sequence, so we change to uniform mode."
+            print("No reference sequence, so we change to uniform mode.")
     else: fastaFile = FastaFile(ref_file)
 
     if bias_file is None: 
         if bias_mode != "unif":
             bias_mode = "unif"
-            print "No bias parameter file, so we change to uniform mode."
+            print("No bias parameter file, so we change to uniform mode.")
     else: biasFile = BiasFile(bias_file)
 
     # 1. run the model
-    y_mean, y_var = [], []
-    psi_75, psi_95 = [], []
-    gene_info, count = [], []
-    psi_mean, psi_var = [], []
-    theta_mean, pro_mean = [], []
-    lik_marg, sample_all = [], []
-
     if time is None: X = np.arange(len(sam_list))
     else: X = np.array(time.split(","), "float")
     if theta2 is None: theta2 = ((max(X) - min(X) + 0.1) / 3.0)**2
 
-    fid = open(out_file + ".dice", "w")
-    headline = "gene_id\ttranscripts\tlogLik"
+    fid1 = open(out_file + ".dice", "w")
+    headline = "gene_id\ttranscripts\ttransLen\tlogLik"
     for i in range(len(X)):
         _t = str(X[i])
         headline += "\tcount_T%s\tratio_T%s\t95CI_T%s" %(_t, _t, _t)
-    fid.writelines(headline + "\n")
+    fid1.writelines(headline + "\n")
+
+    fid2 = gzip.open(out_file + ".sample.gz", "w")
+    fid2.writelines("# MCMC samples for latent Y\n")
+    fid2.writelines("# @gene|transcripts|theta2\n")
+    fid2.writelines("# y_c1t1,y_c2t1;y_c1t2,y_c2t2\n")
 
     g_cnt = 0
     for g in range(gene_list.shape[0]):
@@ -148,7 +153,11 @@ def main():
         if add_premRNA == True: 
             anno["genes"][i].add_premRNA()
 
-        gene_info.append(anno["genes"][i].get_gene_info())
+        gene_info = anno["genes"][i].get_gene_info()
+        _transLen = []
+        for t in anno["genes"][i].trans:
+            _transLen.append("%d" %t.tranL)
+        transLen = ",".join(_transLen)
 
         R_all, len_iso_all, prob_iso_all, _count = [], [], [], []
         for j in range(len(samFiles)):
@@ -167,78 +176,106 @@ def main():
             else: 
                 len_iso_all.append(t.efflen_bias)
                 prob_iso_all.append(t.proB)
-            _count.append(len(t.read1p) + len(t.read1u) + len(t.read2u))
-        count.append(np.array(_count))
+            # _count.append(len(t.read1p) + len(t.read1u) + len(t.read2u))
+            _count.append(np.sum(t.Rmat.sum(axis=1)>0))
+        count = np.array(_count)
+        
+        print_info = ("%s: %d transcript, %d reads." %
+            (anno["gene_id"][i], anno["genes"][i].tranNum, np.sum(count)))
 
-        M = 50000       
-        var = 0.5
-        gap = 500
-        Ymean = np.zeros((R_all[0].shape[1], len(X)))
-        initial = 1000 + gap * len(X)
+        if R_all[0].shape[1] == 1:
+            psi_mean = np.ones((1,len(X)))
+            psi_95 = [np.ones((len(X), 2))]
+            lik_marg = 0.0
+            theta_mean = None
+            sample_all = []
 
-        if is_twice == True:
-            _var = 0
-            for j in range(len(R_all)):
-                _Psi, _Y, _theta, _Pro, _Lik, _cnt, _m = Psi_GP_MH(R_all[j:j+1],
-                    len_iso_all[j:j+1], prob_iso_all[j:j+1], X[j:j+1], 
-                    Ymean[:,j:j+1], var, theta1, theta2, 100, 100, 50)
-                # Ymean[:,j] = _Y[_m/4:,:,0].mean(axis=0)
-                _var += np.var(_Y[_m/4:, :-1, 0], axis=0).mean()
-            if _var / len(R_all) is not None and _var / len(R_all) > 0:
-                var = _var / len(R_all)
+        elif R_all[0].shape[1] > 1:
+            KP_FLAG, Psi_EM = EM_filter(R_all, len_iso_all, prob_iso_all, 2)
 
-        _Psi, _Y, _theta, _Pro, _Lik, _cnt, _m = Psi_GP_MH(R_all, len_iso_all, 
-            prob_iso_all, X, Ymean, var, theta1, theta2, M, initial, gap)
-        #print "%s done. %d acceptances in %d iterations." %(anno["gene_id"][i],_cnt,_m)
+            for t in range(len(R_all)):
+                R_all[t] = R_all[t][:,KP_FLAG]
+                len_iso_all[t] = len_iso_all[t][KP_FLAG]
+                prob_iso_all[t] = prob_iso_all[t][:,KP_FLAG]
+            print_info += " KP_NUM: %d." %(sum(KP_FLAG))
+            Ymean = np.zeros((R_all[0].shape[1], len(X)))
+            for tt in range(len(X)):
+                Ymean[:,tt] = Psi2Y(Psi_EM[tt, KP_FLAG] + 
+                                    np.random.rand(np.sum(KP_FLAG)) * 0.0001)
 
-        temp75 = []
-        temp95 = []
-        for c in range(_Psi.shape[1]):
-            temp75.append(get_CI(_Psi[_m/4:,c,:], 0.75))
-            temp95.append(get_CI(_Psi[_m/4:,c,:], 0.95))
+            M = 20000
+            gap = 100
+            var = 0.1 * np.ones(np.sum(KP_FLAG)-1)
+            initial = 1000 + gap * len(X)
 
-        psi_75.append(temp75)
-        psi_95.append(temp95)
-        y_var.append(_Y[_m/4:,:,:].var(axis=0))
-        y_mean.append(_Y[_m/4:,:,:].mean(axis=0))
-        psi_var.append(_Psi[_m/4:,:,:].var(axis=0))
-        psi_mean.append(_Psi[_m/4:,:,:].mean(axis=0))
-        pro_mean.append(_Pro[_m/4:].mean())
-        lik_marg.append(harmonic_mean_log(_Lik[_m/4:]))
-        theta_mean.append(_theta[_m/4:,:].mean(axis=0))
-        sample_all.append(_Y[-sample_num:,:-1,:])
+            if is_twice == True:
+                _var = np.zeros(R_all[0].shape[1]-1)
+                for j in range(len(R_all)):
+                    _Psi, _Y, _theta, _Pro, _Lik, _cnt, _m = Psi_GP_MH(R_all[j:j+1],
+                        len_iso_all[j:j+1], prob_iso_all[j:j+1], X[j:j+1], 
+                        Ymean[:,j:j+1], var, theta1, theta2, 100, 100, 50)
+                    _var += np.var(_Y[int(_m/4):, :-1, 0], axis=0)
+                var = (_var + 0.000000001) / len(R_all)
+                #print(var)
 
-        aline = gene_info[g][0] + "\t" + gene_info[g][-1] + "\t%.1e" %lik_marg[g]
+            _Psi, _Y, _theta, _Pro, _Lik, _cnt, _m = Psi_GP_MH(R_all, len_iso_all, 
+                prob_iso_all, X, Ymean, var, theta1, theta2, M, initial, gap)
+            print_info += (" %d acceptances in %d iterations." %(_cnt, _m))
+
+            psi_mean = np.zeros((len(KP_FLAG),len(X)))
+            psi_95 = []
+            _idx = -1
+            for c in range(len(KP_FLAG)):
+                if KP_FLAG[c]:
+                    _idx += 1
+                    psi_95.append(get_CI(_Psi[int(_m/4):,_idx,:], 0.95))
+                else: 
+                    psi_95.append(np.zeros((len(X), 2)))
+
+            psi_mean[KP_FLAG,:] = _Psi[int(_m/4):,:,:].mean(axis=0)
+            lik_marg = harmonic_mean_log(_Lik[int(_m/4):])
+            theta_mean = _theta[int(_m/4):,:].mean(axis=0)
+            sample_all = _Y[-sample_num:,:-1,:]
+
+            _tran_name = []
+            for tt in range(len(gene_info[-1].split(","))):
+                if KP_FLAG[tt]: _tran_name.append(gene_info[-1].split(",")[tt])
+            _theta2 = []
+            for tt in range(len(theta_mean)):
+                _theta2.append("%.2e" %_theta[int(_m/4):,tt].mean())
+            _head = "@%s|%s|%s\n" %(gene_info[0], ",".join(_tran_name), ",".join(_theta2))
+            _samples = ""
+            for ss in range(sample_num):
+                for tt in range(_Y.shape[2]):
+                    _line_time = []
+                    for cc in range(_Y.shape[1]):
+                        _line_time.append("%.2e" %_Y[int(_m/2)+ss, cc, tt])
+                    _samples += ",".join(_line_time)
+                    if tt < _Y.shape[2] - 1: 
+                        _samples += ";"
+                    else:
+                        _samples += "\n"
+            fid2.writelines(_head)
+            fid2.writelines(_samples)
+
+        #print(print_info)
+
+        aline = (gene_info[0] + "\t" + gene_info[-1] + "\t" + transLen + "\t%.1e" %lik_marg)
         for i in range(len(X)):
             _ratio,_ci95 = [], []
-            for c in range(len(psi_mean[g][:,i])-1):
-                _ratio.append("%.3f" %psi_mean[g][c,i])
-                _ci95.append("%.3f:%.3f" %(psi_95[g][c][i,1], psi_95[g][c][i,0]))
+            for c in range(len(psi_mean[:,i])):
+                _ratio.append("%.3f" %psi_mean[c,i])
+                _ci95.append("%.3f:%.3f" %(psi_95[c][i,1], psi_95[c][i,0]))
             _ratio,_ci95 = ",".join(_ratio), ",".join(_ci95)
-            aline += "\t%d\t%s\t%s" %(count[g][i], _ratio, _ci95)
-        fid.writelines(aline + "\n")
+            aline += "\t%d\t%s\t%s" %(count[i], _ratio, _ci95)
+        fid1.writelines(aline + "\n")
 
         if g_cnt % 10 == 0 and g_cnt != 0:
-            print "%d genes have been processed." %g_cnt
-    print "%d genes have been processed. Done!" %g_cnt
-    fid.close()
+            print("%d genes have been processed." %g_cnt)
+    print("%d genes have been processed. Done!" %g_cnt)
+    fid1.close()
+    fid2.close()
 
-    if out_h5:
-        fout = h5py.File(out_file + ".hdf5", "w")
-        fout["X"] = X
-        fout["count"] = count
-        fout["y_var"] = y_var
-        fout["y_mean"] = y_mean
-        fout["psi_75"] = psi_75
-        fout["psi_95"] = psi_95
-        fout["psi_var"] = psi_var
-        fout["psi_mean"] = psi_mean
-        fout["pro_mean"] = pro_mean
-        fout["lik_marg"] = lik_marg
-        fout["gene_info"] = gene_info
-        fout["sample_all"] = sample_all
-        fout["theta_mean"] = theta_mean
-        fout.close()
 
 if __name__ == "__main__":
     main()

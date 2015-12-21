@@ -15,7 +15,7 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
     
-reqs = ['numpy', 'scipy', 'matplotlib', 'h5py', 'pysam']
+reqs = ['numpy', 'pysam', 'matplotlib']
 
 setup(
     name='diceseq',
@@ -23,7 +23,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.1.6',
+    version='0.1.7',
 
     description='DICEseq: Dynamic Isoform spliCing Estimator via sequencing data',
     long_description=long_description,
@@ -50,10 +50,7 @@ setup(
           'console_scripts': [
               'diceseq = diceseq.diceseq:main',
               'dice-count = diceseq.dice_count:main',
-              'dice-simulate = diceseq.read_simulate:main',
               'dice-bias = diceseq.bias_estimate:main',
-              'dice-biasplot = diceseq.bias_plot:main',
-              'dice-biasmerge = diceseq.bias_merge:main',
               ],
           }, 
 

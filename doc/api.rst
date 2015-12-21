@@ -10,8 +10,8 @@ DICEseq is a python module that processes the RNA-seq data for basic purposes, e
 In addition, this module provides a set of object-oriented interface, with which users could develope their own codes for customized analysis. Also, a set of statistics functions are also easily available.
 
 
-GTF file and isoforms
-=====================
+GTF and Isoforms
+================
 
 The objects of :class:`~diceseq.Transcript` and :class:`~diceseq.Gene` allow to load data from gtf annotation file. Usually, a gene could contain one or multiple transcripts, including a pre-mRNA. Each transcript could contains one or multiple exons.
 
@@ -32,8 +32,7 @@ The objects of :class:`~diceseq.TranSplice` are based :class:`~diceseq.Gene`, an
    :members:
 
 
-
-Reads set
+Reads Set
 =========
 
 The objects of :class:`~diceseq.ReadSet` index the reads into specific location on genome, e.g., upstream exon, boundary, junction.
