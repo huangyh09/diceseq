@@ -43,14 +43,22 @@ The objects of :class:`~diceseq.ReadSet` index the reads into specific location 
 Bias files
 ==========
 
-The objects of :class:`~diceseq.BiasFile` allow write and read sequence and position bias parameters in to a hdf5 file.
+The objects of :class:`~diceseq.BiasFile` allow to write and read sequence and position bias parameters in to a text file.
 
 .. autoclass:: diceseq.BiasFile
    :members:
 
+Out files
+==========
+
+The objects of :class:`~diceseq.SampleFile` allow to plot the dynamics of the isoform proportions.
+
+.. autoclass:: diceseq.SampleFile
+   :members:
+
 Fasta files
 ===========
-The objects of :class:`~diceseq.FastaFile` allow load fasta file and get sequence from any part of the fasta file.
+The objects of :class:`~diceseq.FastaFile` allow to load fasta file and get sequence from any part of the fasta file.
 
 .. autoclass:: diceseq.FastaFile
    :members:

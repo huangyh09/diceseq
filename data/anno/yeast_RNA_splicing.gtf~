@@ -1,0 +1,22 @@
+#gtf file modified from Ensembl annotation
+#version R64-1-1.77.
+XIII	ensembl	gene	499456	500688	.	-	.	gene_id "YMR116C"; gene_name "ASC1"; gene_biotype "protein_coding";
+XIII	ensembl	transcript	499456	500688	.	-	.	gene_id "YMR116C"; gene_name "ASC1"; gene_biotype "protein_coding";
+XIII	ensembl	exon	500152	500688	.	-	.	gene_id "YMR116C"; gene_name "ASC1"; gene_biotype "protein_coding";
+XIII	ensembl	exon	499456	499878	.	-	.	gene_id "YMR116C"; gene_name "ASC1"; gene_biotype "protein_coding";
+XIV	ensembl	gene	413639	416281	.	+	.	gene_id "YNL112W"; gene_name "DBP2"; gene_biotype "protein_coding";
+XIV	ensembl	transcript	413639	416281	.	+	.	gene_id "YNL112W"; gene_name "DBP2"; gene_biotype "protein_coding";
+XIV	ensembl	exon	413639	414911	.	+	.	gene_id "YNL112W"; gene_name "DBP2"; gene_biotype "protein_coding";
+XIV	ensembl	exon	415914	416281	.	+	.	gene_id "YNL112W"; gene_name "DBP2"; gene_biotype "protein_coding";
+XV	ensembl	gene	93395	94402	.	-	.	gene_id "YOL120C"; gene_name "RPL18A"; gene_biotype "protein_coding";
+XV	ensembl	transcript	93395	94402	.	-	.	gene_id "YOL120C"; gene_name "RPL18A"; gene_biotype "protein_coding";
+XV	ensembl	exon	94291	94402	.	-	.	gene_id "YOL120C"; gene_name "RPL18A"; gene_biotype "protein_coding";
+XV	ensembl	exon	93395	93843	.	-	.	gene_id "YOL120C"; gene_name "RPL18A"; gene_biotype "protein_coding";
+XI	ensembl	gene	431906	432720	.	+	.	gene_id "YKL006W"; gene_name "RPL14A"; gene_biotype "protein_coding";
+XI	ensembl	transcript	431906	432720	.	+	.	gene_id "YKL006W"; gene_name "RPL14A"; gene_biotype "protein_coding";
+XI	ensembl	exon	431906	432034	.	+	.	gene_id "YKL006W"; gene_name "RPL14A"; gene_biotype "protein_coding";
+XI	ensembl	exon	432433	432720	.	+	.	gene_id "YKL006W"; gene_name "RPL14A"; gene_biotype "protein_coding";
+IV	ensembl	gene	1236558	1238004	.	+	.	gene_id "YDR381W"; gene_name "YRA1"; gene_biotype "protein_coding";
+IV	ensembl	transcript	1236558	1238004	.	+	.	gene_id "YDR381W"; gene_name "YRA1"; gene_biotype "protein_coding";
+IV	ensembl	exon	1236558	1236842	.	+	.	gene_id "YDR381W"; gene_name "YRA1"; gene_biotype "protein_coding";
+IV	ensembl	exon	1237609	1238004	.	+	.	gene_id "YDR381W"; gene_name "YRA1"; gene_biotype "protein_coding";

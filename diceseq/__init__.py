@@ -2,7 +2,7 @@
 # Licensed under the MIT License at
 # http://opensource.org/licenses/MIT
 
-__version__ = "0.1.6"
+__version__ = "0.1.8"
 
 from .utils.reads_utils import ReadSet
 from .utils.out_utils import DiceFile, SampleFile

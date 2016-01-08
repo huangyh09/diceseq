@@ -7,7 +7,7 @@ Installation
 
 * Required packages in python: `numpy`, `matplotlib`, `pysam`
 
-  * we suggest using Anaconda_ distribute, which includes most packages but `pysam`
+  * we suggest using Anaconda_ distribute, which includes most packages, except `pysam`, also it provides you a user specific usage, i.e., you don't need the root to install packages.
   * you could install `pysam` by pypi in terminal, or download_ and install as diceseq.
 
   .. _Anaconda: http://continuum.io/downloads
@@ -31,6 +31,7 @@ Installation
 
     python setup.py install
 
+* In any case, if had the permission error for installation as you are not root, add ``--user``.
 
 Quick start with demo
 =====================
@@ -47,7 +48,7 @@ The demo file `demo.sh <https://github.com/huangyh09/diceseq/blob/master/demo.sh
     sam_dir=data/sam
     out_file=data/out/t1
     sam_list=$sam_dir/reads_t1.sorted.bam
-    diceseq --anno_file=$anno_file --add_premRNA=True --sam_list=$sam_list --out_file=$out_file
+    diceseq --anno_file=$anno_file --sam_list=$sam_list --out_file=$out_file --add_premRNA
 
   * joint model
 
@@ -55,7 +56,7 @@ The demo file `demo.sh <https://github.com/huangyh09/diceseq/blob/master/demo.sh
 
     out_file=data/out/joint
     sam_list=$sam_dir/reads_t1.sorted.bam---$sam_dir/reads_t2.sorted.bam---$sam_dir/reads_t3.sorted.bam
-    diceseq --anno_file=$anno_file --add_premRNA=True --sam_list=$sam_list --out_file=$out_file
+    diceseq --anno_file=$anno_file --sam_list=$sam_list --out_file=$out_file --add_premRNA
 
 
 
@@ -70,12 +71,12 @@ The demo file `demo.sh <https://github.com/huangyh09/diceseq/blob/master/demo.sh
     out_file=data/out/t3_cnt1.txt
     dice-count --anno_file=$anno_file --sam_file=$sam_file --out_file=$out_file
 
-  * specific reads count (make sure it contains one intron only)
+  * specific reads count, e.g., junctions (make sure it contains one intron only)
 
   ::
   
     out_file=data/out/t3_cnt2.txt
-    dice-count --anno_file=$anno_file --sam_file=$sam_file --out_file=$out_file --total_only=False
+    dice-count --anno_file=$anno_file --sam_file=$sam_file --out_file=$out_file --junction
 
 For more options, see the detailed usages page.
 

@@ -10,7 +10,7 @@ def load_samfile(sam_file):
     if ftype != "bam" and ftype != "sam":
         print("Error: file type need suffix of bam or sam.")
         sys.exit(1)
-    print("Loading a %s" %ftype + " with file name: %s" %sam_file)
+    # print("Loading a %s" %ftype + " with file name: %s" %sam_file)
     if ftype == "bam":
         samfile = pysam.Samfile(sam_file, "rb")
     else:

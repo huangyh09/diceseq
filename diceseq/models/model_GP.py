@@ -359,7 +359,6 @@ def Psi_GP_MH(R_mat, len_isos, prob_isos, X=None, Ymean=None, var=None,
                 break
     return Psi_all, Y_all, theta_all, Pro_all, Lik_all, cnt, m
 
-
 def EM_filter(R_mat, len_isos, prob_isos, min_num=2):
     T = len(len_isos)
     C = len(len_isos[0])

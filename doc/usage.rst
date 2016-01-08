@@ -60,22 +60,30 @@ This command allows you to estimate isoform proportions jointly (or separately i
 
   diceseq --anno_file=anno_file.gtf --sam_list=$my_sam_list --out_file=out_file
 
-There are more parameters for setting:
+There are more parameters for setting (``diceseq -h`` always give the version you are using):
 
-* ``--anno_file`` or ``-a`` (default=None): the annotation file in gtf format.
+* ``--anno_file`` or ``-a`` (default=None): The annotation file in gtf format.
 * ``--anno_source`` (default=Ensembl): The annotation source of the gtf file.
-* ``--sam_list`` or ``-s`` (default=None): the indexed alignement file in bam/sam format, use ``,`` for replicates and ``---`` for time points, e.g., my_sam1_rep1.sorted.bam,my_sam1_rep2.sorted.bam---my_sam2.sorted.bam.
-* ``--time`` or ``-t`` (default=None): The time for the input samples, e.g., 0,1,2,3, the default values will be the index of all time points, i.e., 0,1,...
-* ``--ref_file`` or ``-r`` (default=None): the genome reference file in fasta format. This is necessary for bias correction, otherwise uniform mode will be used.
-* ``--gene_file`` or ``-g`` (default=None): the list of genes in use. It is the gene id in the gtf annotation. Default is all genes in annotations.
+* ``--sam_list`` or ``-s`` (default=None): The indexed alignement file in bam/sam format, use ``,`` for replicates and ``---`` for time points, e.g., my_sam1_rep1.sorted.bam,my_sam1_rep2.sorted.bam---my_sam2.sorted.bam.
+* ``--ref_file`` or ``-r`` (default=None): The genome reference file in fasta format. This is necessary for bias correction, otherwise uniform mode will be used.
 * ``--out_file`` or ``-o`` (default=diceseq_out): The prefix of the output file. There will be two output file, one in plain text format, the other in gzip format.
-* ``--bias_file`` or ``-b`` (default=None): the parameter file for bias in hdf5 format.
-* ``--bias_mode`` (default=unif): The bias mode: unif (uniform), end3, end5, both.
-* ``--sample_num`` (default=500): The number of MCMC samples to save.
-* ``--add_premRNA`` (default=False): Whether adding pre-mRNA or not.
-* ``--theta1_fix`` (default=3.0): The fixed hyperparameter theta1 for the GP model.
-* ``--theta2_fix`` (default=None): The fixed hyperparameter theta2 for the GP model. The default will cover 1/3 of the duration.
-* ``--is_twice`` (default=True): Whether estimate the rates twice with a quick check first. It is useful for ensuring the 30-50% acceptances in MH sampler.
+* ``--bias_file`` or ``-b`` (default=None): The file for bias parameter.
+* ``--bias_mode`` (default=unif): The bias mode: unif, end5, end3 or both. Without ``ref_file`` or ``--bias_file``, it will be changed into unif.
+
+* ``--time_seq`` or ``-t`` (default=None): The time for the input samples, e.g., 0,1,2,3, the default values will be the index of all time points, i.e., 0,1,...
+* ``--sample_num`` (default=0): The number of MCMC samples to save, 0 for no such file. Advice: lower than 3/4 of `min_run`, e.g, 500.
+
+* ``--nproc`` (default=4): The number of subprocesses.
+* ``--add_premRNA``: Add the pre-mRNA as a transcript.
+* ``--no_twice``: No quick estimate of the variance, but use fixed.
+* ``--print_detail``: Print the detail of the sampling.
+
+* ``--max_run`` (default=5000): The maximum iterations for the MCMC sampler.
+* ``--min_run`` (default=1000): The minimum iterations for the MCMC sampler.
+* ``--gap_run`` (default=100): The increase gap of iterations for the MCMC sampler.
+* ``--theta1`` (default=3.0): The fixed hyperparameter theta1 for the GP model.
+* ``--theta2`` (default=None): The fixed hyperparameter theta2 for the GP model. The default will cover 1/3 of the duration.
+
 
 Suggestions on setting hyperparameter :math:`\theta_2`: if you want :math:`\theta_2` cover :math:`\eta \in (0,1)` of duration, then you should set :math:`\theta_2=(\eta(t_{max}-t_{min}))^2`. The default is :math:`\eta = 1/3`.
 
@@ -89,22 +97,20 @@ This command allows you to calculate the reads counts in an aligned + sorted + i
 
   dice-count --anno_file=anno_file.gtf --sam_file=sam_file.bam --out_file=out_file.txt
 
-There are more parameters for setting:
+There are more parameters for setting (``dice-count -h`` always give the version you are using):
 
-* ``--anno_file`` or ``-a`` (default=None): the annotation file in gtf format;
-* ``--anno_source`` (default="Ensembl"): the annotation source of the gtf file, current supporting Ensemble, SGD, MISO, and Sander (a personalized way);
-* ``--sam_file`` or ``-s`` (default=None): the indexed alignement file in bam/sam format;
-* ``--total_reads`` (default=None): the total aligned reads for calculating RPKM;
-* ``--gene_file`` or ``-g`` (default=None): the list of genes in use. It is the gene id in the gtf annotation. Default is all genes in annotations;
+* ``--anno_file`` or ``-a`` (default=None): The annotation file in gtf format.
+* ``--anno_source`` (default=Ensembl): The annotation source of the gtf file.
+* ``--sam_file`` or ``-s`` (default=None): The indexed alignement file in bam/sam format;
 * ``--out_file`` or ``-o`` (default=dice_count.txt): the counts in plain text file;
-* ``--rm_duplicate`` (default=True): remove duplicate reads or not;
-* ``--inner_only`` (default=True): only include the reads inside or not;
-* ``--mapq_min`` (default=10): the minimum mapq for reads;
-* ``--mismatch_max`` (default=5): the maximum mismatch for reads;
-* ``--rlen_min`` (default=1): the mimimum length of reads;
-* ``--is_mated`` (default=True): process reads as paired-end or not;
-* ``--total_only`` (default=True): provide total reads count only (for a whole gene); if False, then the specific reads for the exon-intron-exon structure will be provide;
-* ``--biotype_rm`` (default=None): the exclusive biotype(s); e.g., snRNA or snRNA---tRNA.
-* ``--biotype_only`` (default=None): the only used biotype(s); e.g., snRNA or snRNA---tRNA.
 
+* ``--duplicate``: Keep duplicate reads.
+* ``--partial``: Keep reads partial in the region.
+* ``--single_end``: Use the reads as single-end.
+* ``--junction``: return junction and boundary reads, only for gene with one exon-intron-exon structure; other wise return total counts for the whole gene.
+
+* ``--nproc`` (default=4): The number of subprocesses.
+* ``--mapq_min`` (default=10): The minimum mapq for reads.
+* ``--mismatch_max`` (default=5): The maximum mismatch for reads.
+* ``--rlen_min`` (default=1): The mimimum length of reads.
 

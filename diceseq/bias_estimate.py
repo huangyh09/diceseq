@@ -1,7 +1,9 @@
 # This file is to esitmate the sequecne and positon bias parameters.
 
 import sys
+import time
 import numpy as np
+import multiprocessing
 from optparse import OptionParser
 from .utils.tran_utils import TranUnits
 from .utils.gtf_utils import load_annotation
@@ -9,14 +11,27 @@ from .utils.bias_utils import BiasFile, FastaFile
 from .utils.sam_utils import load_samfile, fetch_reads
 
 
-def get_bias(BF, transcript, ref_seq, reads, threshold=0.01):
+def get_bias(BF, g, ref_seq, samFile, threshold=0.01):
     """to get the bias parameters from a transcript `t`."""
+    samFile = load_samfile(samFile)
+    ref_seq = FastaFile(ref_seq)
+
+    RV = {}
+    reads = fetch_reads(samFile, g.chrom, g.start, g.stop, 
+                        rm_duplicate=True, inner_only=True, mapq_min=10,
+                        mismatch_max=10, rlen_min=1, is_mated=True)
     rcount = len(reads["reads1"])+len(reads["reads1u"])+len(reads["reads2u"])
-    if rcount < threshold * transcript.tranL:
+    if rcount < threshold * g.trans[0].tranL:
         print("Coverage is only RPK=%.1f on %s, skipped." 
-            %(rcount * 1000.0 / transcript.tranL, transcript.tranID))
-        return BF, np.array([], "float")
-    t = TranUnits(transcript)
+            %(rcount * 1000.0 / g.trans[0].tranL, g.trans[0].tranID))
+        RV["BF"] = BF
+        RV["flen"] = np.array([])
+        return RV
+    else:
+        print(g.geneID, g.chrom, g.strand, g.start, g.stop)
+        print(len(reads["reads1"]), len(reads["reads1u"]), len(reads["reads2u"]))
+
+    t = TranUnits(g.trans[0])
     t.set_sequence(ref_seq)
     seqs = t.seq
     tLen = t.ulen
@@ -33,10 +48,14 @@ def get_bias(BF, transcript, ref_seq, reads, threshold=0.01):
     if len(reads["reads1u"]) > 0:
         t.set_reads(reads["reads1u"], [], "unif")
         idx5 = np.append(idx5, t.idx5)
+        # idx3 = np.append(idx3, t.idx3)
+        # flen = np.append(flen, t.flen[t.Rmat])
 
     if len(reads["reads2u"]) >0:
         t.set_reads([], reads["reads2u"], "unif")
+        # idx5 = np.append(idx5, t.idx5)
         idx3 = np.append(idx3, t.idx3)
+        # flen = np.append(flen, t.flen[t.Rmat])
     
     _i5 = idx5 == idx5
     _i3 = idx3 == idx3
@@ -60,43 +79,67 @@ def get_bias(BF, transcript, ref_seq, reads, threshold=0.01):
         BF.set_both_bias(_seq5, _pos5, tLen, 1.0/tLen, 5, "unif")
         BF.set_both_bias(_seq3, _pos3, tLen, 1.0/tLen, 3, "unif")
 
-    return BF, flen
+    RV["BF"] = BF
+    RV["flen"] = flen
+    return RV
+
+def bias_add(BF, BFnew):
+    BF.pos5_bias += BFnew.pos5_bias
+    BF.pos3_bias += BFnew.pos3_bias
+    BF.pos5_unif += BFnew.pos5_unif
+    BF.pos3_unif += BFnew.pos3_unif
+    for i in range(len(BF.chain_len)):
+        BF.seq5_bias[str(i)] += BFnew.seq5_bias[str(i)]
+        BF.seq3_bias[str(i)] += BFnew.seq3_bias[str(i)]
+        BF.seq5_unif[str(i)] += BFnew.seq5_unif[str(i)]
+        BF.seq3_unif[str(i)] += BFnew.seq3_unif[str(i)]
+    return BF
 
 def main():
-    # import warnings
-    # warnings.filterwarnings('error')
+    print("Welcome to dice-bias!")
+    import warnings
+    warnings.filterwarnings('error')
 
     #part 0. parse command line options
     parser = OptionParser()
     parser.add_option("--anno_file", "-a", dest="anno_file", default=None,
-        help="The annotation file in gtf format")
+        help="The annotation file in gtf format.")
     parser.add_option("--anno_source", dest="anno_source", default="Ensembl",
-        help="The annotation source of the gtf file")
+        help="The annotation source of the gtf file [default: %default]")
     parser.add_option("--sam_file", "-s", dest="sam_file", default=None,
-        help="The indexed alignement file in bam/sam format")
+        help="The sourted & indexed bam/sam file.")
     parser.add_option("--refseq_file", "-r", dest="refseq_file", default=None,
-        help="The fasta file of genome reference sequences")
-    parser.add_option("--out_file", "-o", dest="out_file",
-        default="parameters.hdf5", help="The output file in hdf5 format")
+        help="The fasta file of genome reference sequences.")
+    parser.add_option("--nproc", dest="nproc", default="4",
+        help="The number of subprocesses [default: %default].")
+    parser.add_option("--out_file", "-o", dest="out_file", default="out.bias",
+        help="The output file in BIAS format.")
 
     (options, args) = parser.parse_args()
+    if len(sys.argv[1:]) == 0:
+        print("use -h or --help for help on argument.")
+        sys.exit(1)
     if options.anno_file == None:
         print("Error: need --anno_file for annotation.")
         sys.exit(1)
     else:
         anno = load_annotation(options.anno_file, options.anno_source)
+        genes = anno["genes"]
     if options.sam_file == None:
         print("Error: need --sam_file for reads indexed and aliged reads.")
         sys.exit(1)
     else:
-        samFile = load_samfile(options.sam_file)
-
+        # samFile = load_samfile(options.sam_file)
+        sam_file = options.sam_file
+    
+    nproc = int(options.nproc)
     biasFile = BiasFile()
     out_file = options.out_file
-    fastaFile = FastaFile(options.refseq_file)
+    refseq_file = options.refseq_file
+    # fastaFile = FastaFile(options.refseq_file)
 
     #part 1.1. all transcript length
-    genes = anno["genes"]
+    
     tran_len_all = []
     for g in genes:
         for t in g.trans:
@@ -106,33 +149,46 @@ def main():
     print("%.0f out of %.0f genes have one isoform for bias parameter estimate."
           %(np.sum(anno["tran_num"]==1), len(anno["tran_num"])))
 
-    import time
     start_time = time.time()
-
-    cnt = 0
     flen_all = np.array([],"float")
+    pool = multiprocessing.Pool(processes=nproc)
+    result = []
+    cnt = 0
     for g in genes:
         if g.tranNum > 1: continue
+        # if cnt == 100: break
         cnt += 1
-        print(cnt, g.geneID, g.chrom, g.strand, g.start, g.stop)
-        
-        # 2.1 get the reads and seg_len
-        reads = fetch_reads(samFile, g.chrom, g.start, g.stop, 
-                            rm_duplicate=True, inner_only=True, mapq_min=10,
-                            mismatch_max=10, rlen_min=1, is_mated=True)
-        if len(reads["reads1"])+len(reads["reads1u"])+len(reads["reads2u"])==0:
-            print("No reads for %s" %g.geneID)
-            continue
-        else:
-            print(len(reads["reads1"]), len(reads["reads1u"]), len(reads["reads2u"]))
 
-        biasFile, _flen = get_bias(biasFile, g.trans[0], fastaFile, reads)
-        flen_all = np.append(flen_all, _flen)
+        result.append(pool.apply_async(get_bias, (biasFile, g, refseq_file, sam_file, 0.01, )))
+    pool.close()
+    pool.join()
+    cnt = 0
+    for res in result:
+        RV = res.get()
+        if len(RV["flen"]) == 0: continue
+        cnt += 1
+        flen_all = np.append(flen_all, RV["flen"])
+        biasFile = bias_add(biasFile, RV["BF"])
+    
+    # result = []
+    # for g in genes:
+    #     if g.tranNum > 1: continue
+    #     if cnt == 100: break
+    #     cnt += 1
+    #     result.append((get_bias(biasFile, g, refseq_file, sam_file, 0.01)))
+    # for RV in result:
+    #     flen_all = np.append(flen_all, RV["flen"])
+    #     biasFile = bias_add(biasFile, RV["BF"])
 
-    biasFile.flen_mean = np.mean(flen_all)
-    biasFile.flen_std = np.std(flen_all)
+    if len(flen_all) == 0:
+        biasFile.flen_mean = 0
+        biasFile.flen_std = 0
+    else:
+        biasFile.flen_mean = np.mean(flen_all)
+        biasFile.flen_std = np.std(flen_all)
     biasFile.save_file(out_file)
 
+    print("%d effect genes" %cnt)
     print("--- %.3f seconds ---" % (time.time() - start_time))
     
 

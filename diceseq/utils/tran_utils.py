@@ -112,7 +112,7 @@ class TranUnits:
             else:
                 idx31 = self.get_index(r1.pos)
                 idx51 = self.get_index(r1.aend - 1)
-            if idx51[1] == -1 or idx31[1] == -1: return None
+            if idx51[1] <= -1 or idx31[1] <= -1: return None
             elif idx51[1] >= 0 and idx31[1] >= 0:
                 if (abs(idx51[0] - idx31[0]) + 1 > r1.qlen + 3 or 
                     abs(idx51[0] - idx31[0]) + 1 < r1.qlen - 3): return None
@@ -125,7 +125,7 @@ class TranUnits:
             else:
                 idx32 = self.get_index(r2.pos)
                 idx52 = self.get_index(r2.aend - 1)
-            if  idx52[1] == -1 or idx32[1] == -1: return None
+            if  idx52[1] <= -1 or idx32[1] <= -1: return None
             elif idx52[1] >= 0 and idx32[1] >= 0:
                 if (abs(idx52[0] - idx32[0]) + 1 > r2.qlen + 3 or 
                     abs(idx52[0] - idx32[0]) + 1 < r2.qlen - 3): return None
@@ -137,10 +137,10 @@ class TranUnits:
             flen = abs(idx51[0] - idx31[0]) + 1
             if idx51[1] >= 0: idx5 = idx51[0]
         else:
-            # flen = abs(idx32[0] - idx51[0]) + 1
-            tmp1 = abs(idx32[0] - idx51[0]) + 1
-            tmp2 = abs(idx31[0] - idx52[0]) + 1
-            flen = max(tmp1, tmp2)
+            flen = abs(idx32[0] - idx51[0]) + 1
+            # tmp1 = abs(idx32[0] - idx51[0]) + 1
+            # tmp2 = abs(idx31[0] - idx52[0]) + 1
+            # flen = max(tmp1, tmp2)
 
             # if self.strand == "+" and r1.is_reverse:
             #     print("test1")
@@ -216,24 +216,24 @@ class TranUnits:
                     self.proB[i] *= self.bias3[rinfo["idx3"]]
 
         # fragement distribution
+        flen = self.flen[self.Rmat]
         self.probs = np.zeros(self.ulen)
-        if sum(self.Rmat) == 0: 
-            self.probs[0] = 1.0
-        elif np.unique(self.flen[self.Rmat]).shape[0] <= 10:
-            for i in np.unique(self.flen[self.Rmat]):
-                # self.probs[int(i)-1] = sum(self.flen[self.Rmat]==i) / (sum(self.Rmat) + 0.0)
-                self.probs[int(i)-1] = np.mean(self.flen==i)
-        else:
-            if flen_std is None: flen_std = np.std(self.flen[self.Rmat])
-            if flen_mean is None: flen_mean = np.mean(self.flen[self.Rmat])
-            x = np.arange(1, self.ulen+1)
+        if sum(self.Rmat) == 0: self.probs[0] = 1.0
+        elif np.unique(flen).shape[0] >= 10:
+            if flen_std is None: flen_std = np.std(flen)
+            if flen_mean is None: flen_mean = np.mean(flen)
+            x = np.arange(self.ulen) + 1
             self.probs[:] = normal_pdf(x, flen_mean, flen_std)
-            self.probs = self.probs / sum(self.probs) #if sum(self.probs) != 0:
+            if sum(self.probs) > 0: self.probs /= sum(self.probs)
+        else:
+            for i in np.unique(flen): 
+                self.probs[int(i)-1] = np.mean(flen==i) #be careful here.
              
         # effective length
         self.biasLen = np.zeros(self.ulen)
         for i in range(1, self.ulen+1):
-            self.efflen_unif += self.probs[i-1] * (self.ulen-i+1)
+            # self.efflen_unif += self.probs[i-1] * (self.ulen-i+1)
+            self.efflen_unif += 1
             if self.bias_mode == "unif" or self.probs[i-1] == 0: continue
             for j in range(self.ulen - i + 1):
                 if self.strand == "+" or self.strand == "1":
@@ -291,7 +291,7 @@ class TranSplice:
         self.read1u += reads["reads1u"]
         self.read2u += reads["reads2u"]
 
-    def get_ready(self, bias_mode="unif"):
+    def get_ready(self, bias_mode="unif", flen_mean=None, flen_std=None):
         """get the location index of the transcript, need implimentation
         in future. Then, we could remove the Rmat, and flen from ReadSet
         object, and set the Rmat and flen by the info of states."""
@@ -314,7 +314,7 @@ class TranSplice:
                 elif j == 2: _reads2 = self.read2u
                 if (len(_reads1) + len(_reads2)) == 0: continue
 
-                _units.set_reads(_reads1, _reads2, bias_mode)
+                _units.set_reads(_reads1, _reads2, bias_mode, flen_mean, flen_std)
                 self.Rmat[_idx, i] = _units.Rmat
                 self.flen[_idx, i] = _units.flen
                 self.proB[_idx, i] = _units.proB
@@ -329,19 +329,4 @@ class TranSplice:
             else:
                 self.efflen_unif[i] = _units.ulen
                 self.efflen_bias[i] = _units.ulen
-
-    def quick_start(self, samfile=None, fastafile=None, biasfile=None):
-        """update the state_read after change the transcript information or 
-        adding or removing states"""
-        if samfile   is not None: self.set_reads(samfile)
-        if fastafile is not None: self.set_sequence(fastafile)
-        if biasfile  is not None: self.set_bias(biasfile)
-        print(len(self.read1p), len(self.read1u), len(self.read2u))
-
-        self.get_ready()
-        print("ready")
-        # try:
-        #     self.get_ready()
-        # except NameError:
-        #     print("Cannot get ready now; please input necessary info first!")
 
