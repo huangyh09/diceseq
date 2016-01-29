@@ -72,7 +72,7 @@ def get_count(gene, sam_file, total_reads, rm_duplicate, inner_only, mapq_min,
     gLen = str(abs(gene.stop - gene.start) + 1)
     a_line =  "\t".join([gene.geneID, gene.geneName, gene.biotype, gLen]) + "\t"
     a_line += "\t".join(["%d" %num for num in list(count)]) + "\t" 
-    a_line += "\t".join(["%.2f" %num for num in list(RPKM)]) + "\n"
+    a_line += "\t".join(["%.2e" %num for num in list(RPKM)]) + "\n"
     return a_line
 
 def main():
@@ -105,11 +105,14 @@ def main():
     parser.add_option("--single_end", action="store_true", dest="single_end",
         default=False, help="use the reads as single-end.")
     parser.add_option("--junction", action="store_true", dest="junction_reads",
-        default=False, help="return junction and boundary reads, only for \
-        gene with one exon-intron-exon structure; other wise return total \
-        counts for the whole gene.")
+        default=False, help=("return junction and boundary reads, only for "
+        "gene with one exon-intron-exon structure; other wise return total "
+        "counts for the whole gene."))
 
     (options, args) = parser.parse_args()
+    if len(sys.argv[1:]) == 0:
+        print("use -h or --help for help on argument.")
+        sys.exit(1)
     if options.anno_file == None:
         print("Error: need --anno_file for annotation.")
         sys.exit(1)
@@ -126,9 +129,8 @@ def main():
     else:
         sam_file = options.sam_file
 
-    bashCommand = "samtools view -c " + sam_file
-    process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-    total_reads = float(process.communicate()[0].split()[0])
+    _map_num = np.loadtxt(pysam.idxstats(sam_file), "str")[:,2]
+    total_reads = _map_num.astype("float").sum()
 
     nproc = int(options.nproc)
     mapq_min = int(options.mapq_min)

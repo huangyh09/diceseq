@@ -10,6 +10,32 @@ from .utils.gtf_utils import load_annotation
 from .utils.bias_utils import BiasFile, FastaFile
 from .utils.sam_utils import load_samfile, fetch_reads
 
+PROCESSED = 0
+USED_GENE = 0
+TOTAL_GENE = 0
+TOTAL_READ = 0
+BIAS_FILE = BiasFile()
+START_TIME = time.time()
+
+def show_progress(RV):
+    global PROCESSED, BIAS_FILE, TOTAL_READ, USED_GENE
+
+    PROCESSED += 1
+    bar_len = 30
+    run_time = time.time() - START_TIME
+    percents = 100.0 * PROCESSED / TOTAL_GENE
+    filled_len = int(round(bar_len * percents / 100))
+    bar = '=' * filled_len + '-' * (bar_len - filled_len)
+    
+    sys.stdout.write('\r[%s] %.2f%% processed in %.1f sec.' 
+        % (bar, percents, run_time))
+    sys.stdout.flush()
+
+    if RV is None: return None
+    USED_GENE += 1
+    TOTAL_READ += RV["BF"].read_num
+    BIAS_FILE.add_bias_file(RV["BF"])
+    return RV
 
 def get_bias(BF, g, ref_seq, samFile, threshold=0.01):
     """to get the bias parameters from a transcript `t`."""
@@ -22,14 +48,13 @@ def get_bias(BF, g, ref_seq, samFile, threshold=0.01):
                         mismatch_max=10, rlen_min=1, is_mated=True)
     rcount = len(reads["reads1"])+len(reads["reads1u"])+len(reads["reads2u"])
     if rcount < threshold * g.trans[0].tranL:
-        print("Coverage is only RPK=%.1f on %s, skipped." 
-            %(rcount * 1000.0 / g.trans[0].tranL, g.trans[0].tranID))
-        RV["BF"] = BF
-        RV["flen"] = np.array([])
-        return RV
-    else:
-        print(g.geneID, g.chrom, g.strand, g.start, g.stop)
-        print(len(reads["reads1"]), len(reads["reads1u"]), len(reads["reads2u"]))
+        # print("Coverage is only RPK=%.1f on %s, skipped." 
+        #     %(rcount * 1000.0 / g.trans[0].tranL, g.trans[0].tranID))
+        #RV["BF"] = BF
+        #RV["flen"] = np.array([])
+        return None
+    # print(g.geneID, g.chrom, g.strand, g.start, g.stop)
+    # print(len(reads["reads1"]), len(reads["reads1u"]), len(reads["reads2u"]))
 
     t = TranUnits(g.trans[0])
     t.set_sequence(ref_seq)
@@ -44,6 +69,7 @@ def get_bias(BF, g, ref_seq, samFile, threshold=0.01):
         idx5 = np.append(idx5, t.idx5)
         idx3 = np.append(idx3, t.idx3)
         flen = np.append(flen, t.flen[t.Rmat])
+        #print(len(flen))
 
     if len(reads["reads1u"]) > 0:
         t.set_reads(reads["reads1u"], [], "unif")
@@ -53,12 +79,12 @@ def get_bias(BF, g, ref_seq, samFile, threshold=0.01):
 
     if len(reads["reads2u"]) >0:
         t.set_reads([], reads["reads2u"], "unif")
-        # idx5 = np.append(idx5, t.idx5)
         idx3 = np.append(idx3, t.idx3)
+        # idx5 = np.append(idx5, t.idx5)
         # flen = np.append(flen, t.flen[t.Rmat])
-    
-    _i5 = idx5 == idx5
-    _i3 = idx3 == idx3
+
+    _i5 = idx5 == idx5 #> -1000 #
+    _i3 = idx3 == idx3 #> -1000 #
     idx5 = idx5[_i5]
     idx3 = idx3[_i3]
 
@@ -78,22 +104,14 @@ def get_bias(BF, g, ref_seq, samFile, threshold=0.01):
             BF.set_both_bias(_seq3, _pos3, tLen, np.mean(idx3==i), 3, "bias")
         BF.set_both_bias(_seq5, _pos5, tLen, 1.0/tLen, 5, "unif")
         BF.set_both_bias(_seq3, _pos3, tLen, 1.0/tLen, 3, "unif")
+    BF.read_num = len(flen)
+    BF.flen_sum1 = np.sum(flen)
+    BF.flen_sum2 = np.sum(flen**2)
 
     RV["BF"] = BF
-    RV["flen"] = flen
+    #RV["flen"] = flen
     return RV
 
-def bias_add(BF, BFnew):
-    BF.pos5_bias += BFnew.pos5_bias
-    BF.pos3_bias += BFnew.pos3_bias
-    BF.pos5_unif += BFnew.pos5_unif
-    BF.pos3_unif += BFnew.pos3_unif
-    for i in range(len(BF.chain_len)):
-        BF.seq5_bias[str(i)] += BFnew.seq5_bias[str(i)]
-        BF.seq3_bias[str(i)] += BFnew.seq3_bias[str(i)]
-        BF.seq5_unif[str(i)] += BFnew.seq5_unif[str(i)]
-        BF.seq3_unif[str(i)] += BFnew.seq3_unif[str(i)]
-    return BF
 
 def main():
     print("Welcome to dice-bias!")
@@ -110,8 +128,10 @@ def main():
         help="The sourted & indexed bam/sam file.")
     parser.add_option("--refseq_file", "-r", dest="refseq_file", default=None,
         help="The fasta file of genome reference sequences.")
-    parser.add_option("--nproc", dest="nproc", default="4",
+    parser.add_option("--nproc", "-p", dest="nproc", default="4",
         help="The number of subprocesses [default: %default].")
+    parser.add_option("--num_max", dest="num_max", default=None,
+        help="The maximum number of genes for bias estimate [default: %default].")
     parser.add_option("--out_file", "-o", dest="out_file", default="out.bias",
         help="The output file in BIAS format.")
 
@@ -123,74 +143,64 @@ def main():
         print("Error: need --anno_file for annotation.")
         sys.exit(1)
     else:
+        sys.stdout.write("\rloading annotation file...")
+        sys.stdout.flush()    
         anno = load_annotation(options.anno_file, options.anno_source)
+        sys.stdout.write("\rloading annotation file... Done.\n")
+        sys.stdout.flush()
         genes = anno["genes"]
     if options.sam_file == None:
         print("Error: need --sam_file for reads indexed and aliged reads.")
         sys.exit(1)
     else:
-        # samFile = load_samfile(options.sam_file)
         sam_file = options.sam_file
     
     nproc = int(options.nproc)
-    biasFile = BiasFile()
     out_file = options.out_file
     refseq_file = options.refseq_file
-    # fastaFile = FastaFile(options.refseq_file)
 
-    #part 1.1. all transcript length
-    
+    #part 1. transcript length
+    global TOTAL_GENE
     tran_len_all = []
     for g in genes:
         for t in g.trans:
             tran_len_all.append(t.tranL)
-    biasFile.set_percentile(np.array(tran_len_all))
-    print(biasFile.percentile)
-    print("%.0f out of %.0f genes have one isoform for bias parameter estimate."
-          %(np.sum(anno["tran_num"]==1), len(anno["tran_num"])))
+    BF = BiasFile()
+    BF.set_percentile(np.array(tran_len_all))
+    BIAS_FILE.set_percentile(np.array(tran_len_all))
+    TOTAL_GENE = np.sum(anno["tran_num"]==1)
 
-    start_time = time.time()
-    flen_all = np.array([],"float")
-    pool = multiprocessing.Pool(processes=nproc)
-    result = []
-    cnt = 0
-    for g in genes:
-        if g.tranNum > 1: continue
-        # if cnt == 100: break
-        cnt += 1
-
-        result.append(pool.apply_async(get_bias, (biasFile, g, refseq_file, sam_file, 0.01, )))
-    pool.close()
-    pool.join()
-    cnt = 0
-    for res in result:
-        RV = res.get()
-        if len(RV["flen"]) == 0: continue
-        cnt += 1
-        flen_all = np.append(flen_all, RV["flen"])
-        biasFile = bias_add(biasFile, RV["BF"])
-    
-    # result = []
-    # for g in genes:
-    #     if g.tranNum > 1: continue
-    #     if cnt == 100: break
-    #     cnt += 1
-    #     result.append((get_bias(biasFile, g, refseq_file, sam_file, 0.01)))
-    # for RV in result:
-    #     flen_all = np.append(flen_all, RV["flen"])
-    #     biasFile = bias_add(biasFile, RV["BF"])
-
-    if len(flen_all) == 0:
-        biasFile.flen_mean = 0
-        biasFile.flen_std = 0
+    if options.num_max is None:
+        num_max = TOTAL_GENE
     else:
-        biasFile.flen_mean = np.mean(flen_all)
-        biasFile.flen_std = np.std(flen_all)
-    biasFile.save_file(out_file)
+        num_max = min(int(options.num_max), TOTAL_GENE)
 
-    print("%d effect genes" %cnt)
-    print("--- %.3f seconds ---" % (time.time() - start_time))
-    
+    print("isoform length: 0--%d--%d--%d--%d--inf" %tuple(BF.percentile[1:,0]))
+    print("running dice-bias for %d one-isoform genes with %d cores..." %(TOTAL_GENE, nproc))
+
+    #part 2. estimate
+    cnt = 0
+    if nproc <= 1:
+        for g in genes:
+            if g.tranNum > 1: continue
+            cnt += 1
+            if cnt >= num_max: break
+            RV = get_bias(BF, g, refseq_file, sam_file, 0.01)
+            show_progress(RV)
+    else:
+        pool = multiprocessing.Pool(processes=nproc)
+        for g in genes:
+            if g.tranNum > 1: continue
+            cnt += 1
+            if cnt >= num_max: break
+            pool.apply_async(get_bias, (BF, g, refseq_file, sam_file, 0.01), 
+                callback=show_progress)
+        pool.close()
+        pool.join()
+
+    BIAS_FILE.save_file(out_file)
+    print("\n%d reads from %d genes were used in bias estimate." %(TOTAL_READ, USED_GENE))
+
 
 if __name__ == "__main__":
     main()

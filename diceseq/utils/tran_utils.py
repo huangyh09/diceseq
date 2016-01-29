@@ -41,10 +41,7 @@ class TranUnits:
         """set the bias for all loci, with the bias modes of sequence / 
         position / both; make sure setting quence before using sequence
         or both modes"""
-        if biasFile is None:
-            # print("This is a Null bias file.")
-            return
-            
+        if biasFile is None: return
         self.bias_method = mode
         self.bias5 = np.ones(self.loci.shape[0])
         self.bias3 = np.ones(self.loci.shape[0])
@@ -138,21 +135,6 @@ class TranUnits:
             if idx51[1] >= 0: idx5 = idx51[0]
         else:
             flen = abs(idx32[0] - idx51[0]) + 1
-            # tmp1 = abs(idx32[0] - idx51[0]) + 1
-            # tmp2 = abs(idx31[0] - idx52[0]) + 1
-            # flen = max(tmp1, tmp2)
-
-            # if self.strand == "+" and r1.is_reverse:
-            #     print("test1")
-            # if self.strand == "-" and r2.is_reverse:
-            #     print("test2")
-
-            # if abs(idx31[0] - idx52[0]) > abs(idx32[0] - idx51[0]): 
-            #     if abs(idx51[0] - idx52[0]) < 5:
-            #         print("strange!!!!!!", self.strand, r1.is_reverse, idx51[0], idx31[0], idx52[0], idx32[0])
-            #     else:
-            #         print("test", self.strand, r1.is_reverse, idx51[0], idx31[0], idx52[0], idx32[0])
-            
             if idx51[1] >= 0: idx5 = idx51[0]
             if idx32[1] >= 0: idx3 = idx32[0]
             
@@ -270,13 +252,14 @@ class TranSplice:
 
     def set_sequence(self, fastafile):
         """get the sequence from the genome sequence in FastaFile object"""
-        for i in len(self.unitSet):
+        for i in range(len(self.unitSet)):
             self.unitSet[i].set_sequence(fastafile)
 
-    def set_bias(self, biasfile):
-        """get the bias parameters from the BiasFile object"""
-        for i in len(self.unitSet):
-            self.unitSet[i].set_bias(biasfile)
+    def set_bias(self, biasfile, mode="both"):
+        """get the bias parameters from the BiasFile object
+        mode: both, seq, pos"""
+        for i in range(len(self.unitSet)):
+            self.unitSet[i].set_bias(biasfile, mode)
         self.bias_in = True
 
     def set_reads(self, samfile, rm_duplicate=True, inner_only=True,
@@ -291,10 +274,18 @@ class TranSplice:
         self.read1u += reads["reads1u"]
         self.read2u += reads["reads2u"]
 
-    def get_ready(self, bias_mode="unif", flen_mean=None, flen_std=None):
+    def get_ready(self, bias_mode="unif", flen_mean=None, flen_std=None, 
+                  mate_mode="pair", auto_min=200):
         """get the location index of the transcript, need implimentation
         in future. Then, we could remove the Rmat, and flen from ReadSet
         object, and set the Rmat and flen by the info of states."""
+        if mate_mode == "single" or (mate_mode == "auto" and 
+            len(self.read1p) < auto_min):
+            self.read1u += self.read1p
+            self.read2u += self.read2p
+            self.read1p = []
+            self.read2p = []
+            
         rcnt = [len(self.read1p), len(self.read1u), len(self.read2u)]
         unit_cnt = len(self.unitSet)
         self.Rmat = np.ones((sum(rcnt), unit_cnt), "bool")

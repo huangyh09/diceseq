@@ -2,6 +2,17 @@
 Release notes (major)
 =====================
 
+Release 0.1.9 (29/01/2016)
+==========================
+
+* fixed some bugs
+* tested the estimate of bias parameters and fragment length distribution
+* introduced the parallel computation, new you can run it on multiple cores
+* changed the format of output file for diceseq, which is easier to read
+* introducted the auto detection of using single-end or paired-end reads
+* removed the EM algorithm for buin-in, as we could easily use multiple cores to reduce running time
+
+
 Release 0.1.7 (21/12/2015)
 ==========================
 

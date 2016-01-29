@@ -30,7 +30,9 @@ class BiasFile:
         self.pos5_prob = np.zeros((5, 20))
         self.pos3_prob = np.zeros((5, 20))
         self.percentile = np.zeros((5, 2))
-        self.flen_mean, self.flen_std = 200, 20
+        self.flen_mean, self.flen_std = 0, 0
+        self.flen_sum1, self.flen_sum2 = 0, 0
+        self.read_num = 0
 
         self.seq5_bias, self.seq3_bias = {}, {}
         self.seq5_unif, self.seq3_unif = {}, {}
@@ -50,7 +52,10 @@ class BiasFile:
         fid.close()
         
         self.flen_mean = float(all_lines[4].split("\t")[0])
-        self.flen_std = float(all_lines[4].split("\t")[1])
+        self.flen_std  = float(all_lines[4].split("\t")[1])
+        self.flen_sum1 = float(all_lines[4].split("\t")[2])
+        self.flen_sum2 = float(all_lines[4].split("\t")[3])
+        self.read_num  = float(all_lines[4].split("\t")[4])
         for i in range(5,105):
             a, b = (i-5) // 20, (i-5) % 20
             if b == 0:
@@ -77,6 +82,33 @@ class BiasFile:
             self.seq3_prob[ii][cnt] = max(0, self.seq3_bias[ii][cnt] / self.seq3_unif[ii][cnt])
             self.base_chain[ii][cnt] = all_lines[i].split("\t")[0].split("|")[1]
             
+    def add_bias_file(self, BF):
+        self.pos5_bias += BF.pos5_bias
+        self.pos3_bias += BF.pos3_bias
+        self.pos5_unif += BF.pos5_unif
+        self.pos3_unif += BF.pos3_unif
+        for i in range(len(self.chain_len)):
+            self.seq5_bias[str(i)] += BF.seq5_bias[str(i)]
+            self.seq3_bias[str(i)] += BF.seq3_bias[str(i)]
+            self.seq5_unif[str(i)] += BF.seq5_unif[str(i)]
+            self.seq3_unif[str(i)] += BF.seq3_unif[str(i)]
+
+        self.read_num  += BF.read_num
+        self.flen_sum1 += BF.flen_sum1
+        self.flen_sum2 += BF.flen_sum2
+        if self.read_num > 0:
+            self.flen_mean = self.flen_sum1 / (self.read_num+0.0)
+            self.flen_std  = np.sqrt(self.flen_sum2*self.read_num - self.flen_sum1**2) / (self.read_num+0.0)
+
+    def updata_prob(self):
+        self.pos5_prob = self.pos5_bias[a,b] / self.pos5_unif[a,b]
+        self.pos3_prob = self.pos3_bias[a,b] / self.pos3_unif[a,b]
+        for i in range(len(self.chain_len)):
+            self.seq5_prob[str(i)] = self.seq5_bias[str(i)] / self.seq5_unif[str(i)]
+            self.seq3_prob[str(i)] = self.seq3_bias[str(i)] / self.seq3_unif[str(i)]
+        self.flen_mean = self.flen_sum1 / (self.read_num+0.0)
+        self.flen_std  = np.sqrt(self.flen_sum2*self.read_num - self.flen_sum1**2) / (self.read_num+0.0)
+
     def set_base_chain(self):
         """set the sub-base chain for the variable-length Markov model (VLMM),
         which was proposed by Reberts et al, Genome Biology, 2011: 
@@ -115,6 +147,7 @@ class BiasFile:
         for j in range(len(seq)):
             _len = self.chain_len[j]
             _bas = seq[j-_len+1 : j+1]
+            if self.base_chain[str(j)].count(_bas) == 0: continue
             _idx = self.base_chain[str(j)].index(_bas)
             prob = prob * parameters[str(j)][_idx]
         return prob
@@ -159,6 +192,7 @@ class BiasFile:
         for j in range(len(seq)):
             _len = self.chain_len[j]
             _bas = seq[j-_len+1 : j+1]
+            if self.base_chain[str(j)].count(_bas) == 0: continue
             _idx = self.base_chain[str(j)].index(_bas)
             if end_num == 5:
                 if mode == "bias":
@@ -191,10 +225,11 @@ class BiasFile:
         """to save the bias file in BIAS FILE FORMAT"""
         fid = open(out_file, "w")
         fid.writelines("# BIAS PARAMETER FORMAT\n")
-        fid.writelines("# fragment length: 2 (mean, std), line 5\n")
+        fid.writelines("# fragment leng: 5 (mean, std, sum_fl, sum_fl^2, reads), line 5\n")
         fid.writelines("# position bias: 5*20*4 (name, b5, b3, u5, u3), line 6-105\n")
         fid.writelines("# sequence bias: 744*4 (name, b5, b3, u5, u3), line 106-849\n")
-        fid.writelines("%.2f\t%.2f\n" %(self.flen_mean, self.flen_std))
+        fid.writelines("%.2f\t%.2f\t%.2e\t%.2e\t%.0f\n" %(self.flen_mean, self.flen_std,
+            self.flen_sum1, self.flen_sum2, self.read_num))
         for i in range(self.pos5_bias.shape[0]):
             for j in range(self.pos5_bias.shape[1]):
                 aLine = ("%.0f-%.0f|%d\t%.2e\t%.2e\t%.2e\t%.2e\n"
@@ -208,7 +243,6 @@ class BiasFile:
                            self.seq3_bias[i][j], self.seq5_unif[i][j], self.seq3_unif[i][j]))
                 fid.writelines(aLine)
         fid.close()
-
 
     def plot_bias(self, mode=None):
         """plot of bias parameters: flen, pos5, pos3, seq5, seq3"""

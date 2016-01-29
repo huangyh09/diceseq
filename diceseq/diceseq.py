@@ -4,7 +4,7 @@
 import sys
 import gzip
 import time
-import subprocess
+import pysam
 import numpy as np
 import multiprocessing
 from optparse import OptionParser
@@ -20,7 +20,7 @@ PROCESSED = 0
 TOTAL_GENE = 0
 TOTAL_READ = []
 START_TIME = time.time()
-
+    
 def show_progress(RV=None):
     global PROCESSED, TOTAL_GENE, START_TIME, FID1, FID2
     if RV is None: 
@@ -55,7 +55,7 @@ def harmonic_mean_log(data, log_in=True, log_out=True):
     if log_in is not True:
         data = np.log(data)
     RV = np.log(len(data)) + np.min(data, axis=0)
-    RV = RV - np.log(np.sum(np.exp(np.min(data, axis=0) - data), axis=0))
+    RV = RV - np.log(np.sum(np.exp(np.min(data, axis=0) - data), axis=0)) #make sure avoiding log(0)
     if log_out is not True: RV = np.exp(RV)
     return RV
 
@@ -65,42 +65,55 @@ def Psi2Y(Psi):
     Y[:-1] = np.log(Psi[:-1] / Psi[-1])
     return Y
 
-def get_psi(gene, sam_list, ref_file,  biasFile, bias_mode, X, M, initial,
-            gap, theta1, theta2, no_twice, sample_num, pout):
+def get_psi(gene, sam_list, ref_file,  bias_file, bias_mode, X, M, initial, gap,
+            theta1, theta2, no_twice, sample_num, pout, FLmean, FLstd, 
+            mate_mode, auto_min):
     samFiles = []
-    for s in sam_list:
+    for sam_time in sam_list:
         _sam = []
-        ss_list = s.split(",")
-        for ss in ss_list:
-            _sam.append(load_samfile(ss))
+        for sam_rep in sam_time:
+            _sam.append(load_samfile(sam_rep))
         samFiles.append(_sam)
-    if ref_file is not None: fastaFile = FastaFile(ref_file)
+    if ref_file is not None: 
+        fastaFile = FastaFile(ref_file)
 
     R_all, len_iso_all, prob_iso_all, _count = [], [], [], []
-    for j in range(len(samFiles)):
+    for i in range(len(samFiles)):
         t = TranSplice(gene)
-        for _sam in samFiles[j]:
-            t.set_reads(_sam)
-        if bias_mode != "unif":
-            t.set_sequence(fastaFile)
-            t.set_bias(biasFile)
+        for j in range(len(samFiles[i])):
+            t.set_reads(samFiles[i][j])
+            if bias_mode != "unif":
+                if len(bias_file) == len(samFiles):
+                    _bias = BiasFile(bias_file[i])
+                elif len(bias_file) == 1:
+                    _bias = BiasFile(bias_file[0])
+                else: continue
+                t.set_sequence(fastaFile)
+                t.set_bias(_bias, "seq") #under development
+                if FLmean is None and _bias.flen_mean != 0: 
+                    FLmean = _bias.flen_mean
+                if FLstd is None and _bias.flen_std != 0: 
+                    FLstd = _bias.flen_std
 
-        t.get_ready(bias_mode, 200, 20)
+        t.get_ready(bias_mode, FLmean, FLstd, mate_mode, auto_min)
         R_all.append(t.Rmat)
         if bias_mode == "unif": 
             len_iso_all.append(t.efflen_unif)
             prob_iso_all.append(t.proU)
         else: 
-            len_iso_all.append(t.efflen_bias)
+            #len_iso_all.append(t.efflen_bias)
+            len_iso_all.append(t.efflen_unif) #under development
             prob_iso_all.append(t.proB)
-        # print(len(t.read1p), len(t.read1u), len(t.read2u))
-        # _count.append(len(t.read1p) + len(t.read1u) + len(t.read2u))
+
+        # for count only
+        if mate_mode != "pair":
+            t.get_ready("unif", FLmean, FLstd, "pair", auto_min)
         _count.append(np.sum(t.Rmat.sum(axis=1)>0))
+        # print(len(t.read1p), len(t.read1u), len(t.read2u))
     count = np.array(_count)
     
     print_info = ("%s: %d transcript, %d reads." %
         (gene.geneID, gene.tranNum, np.sum(count)))
-    # if pout: print("\n" + print_info)#
 
     if R_all[0].shape[1] == 1:
         psi_mean = np.ones((1,len(X)))
@@ -149,7 +162,7 @@ def get_psi(gene, sam_list, ref_file,  biasFile, bias_mode, X, M, initial,
         for t in range(len(X)):
             fsi = (transLen * psi_mean[:,t]) / np.sum(transLen * psi_mean[:,t])
             FPKM = count[t] * fsi[c] * 10**9 / transLen[c] / TOTAL_READ[t]
-            _line += "\t%.1f\t%.3f\t%.3f\t%.3f" %(FPKM, psi_mean[c,t],
+            _line += "\t%.2e\t%.3f\t%.3f\t%.3f" %(FPKM, psi_mean[c,t],
                 psi_95[c][t,1], psi_95[c][t,0])
         diceL += _line + "\n"
 
@@ -167,7 +180,6 @@ def get_psi(gene, sam_list, ref_file,  biasFile, bias_mode, X, M, initial,
                 sampL += ";"
             else:
                 sampL += "\n"
-    # show_progress()
     
     RV = {}
     RV["dice_line"] = diceL
@@ -187,26 +199,28 @@ def main():
     parser.add_option("--anno_source", dest="anno_source", default="Ensembl",
         help="The annotation source of the gtf file [default: %default].")
     parser.add_option("--sam_list", "-s", dest="sam_list", default=None,
-        help="the indexed alignement file in bam/sam format, use ',' for\
-        replicates and '---' for time points, e.g.,\
-        my_sam1_rep1.sorted.bam,my_sam1_rep2.sorted.bam---my_sam2.sorted.bam.")
+        help=("the indexed alignement file in bam/sam format, use ',' for "
+        "replicates and '---' for time points, e.g., "
+        "my_sam1_rep1.sorted.bam,my_sam1_rep2.sorted.bam---my_sam2.sorted.bam."))
     parser.add_option("--ref_file", "-r", dest="ref_file", default=None,
-        help="The genome reference file in fasta format. This is necessary\
-        for bias correction, otherwise uniform mode will be used.")
-    parser.add_option("--bias_file", "-b", dest="bias_file", default=None,
-        help="The file for bias parameter.")
+        help=("The genome reference file in fasta format. This is necessary "
+        "for bias correction, otherwise uniform mode will be used."))
+    parser.add_option("--bias_file", "-b", dest="bias_file", default="",
+        help="The files for bias parameter. You could use one bise file for all "
+        "time points, or use T bias files for each time point, by '---', e.g., "
+        "file1.bias---file2.bias")
     parser.add_option("--bias_mode", dest="bias_mode", default="unif", 
-        help="The bias mode: unif, end5, end3 or both. without ref_file, it \
-        will be changed into unif [default: %default].")
+        help=("The bias mode: unif, end5, end3 or both. without ref_file, it "
+        "will be changed into unif [default: %default]."))
     parser.add_option("--out_file", "-o", dest="out_file",
-        default="diceseq_out", help="The prefix of the output file. There will\
-        be two files: one in plain text format, the other in gzip format.")
+        default="diceseq_out", help=("The prefix of the output file. There will"
+        " be two files: one in plain text format, the other in gzip format."))
     parser.add_option("--sample_num", dest="sample_num", default="0",
-        help="The number of MCMC samples to save, 0 for no such file. Advice: \
-        lower than 3/4 of `min_run`, e.g, 500 [default: %default].")
+        help=("The number of MCMC samples to save, 0 for no such file. Advice:"
+        " lower than 3/4 of `min_run`, e.g, 500 [default: %default]."))
     parser.add_option("--time_seq", "-t", dest="time_seq", default=None,
-        help="The time for the input samples, e.g., 0,1,2,3, the default\
-        values will be the index of all time points, i.e., 0,1,...")
+        help=("The time for the input samples, e.g., 0,1,2,3, the default "
+        "values will be the index of all time points, i.e., 0,1,..."))
 
     parser.add_option("--nproc", dest="nproc", default="4",
         help="The number of subprocesses [default: %default].")
@@ -217,21 +231,33 @@ def main():
     parser.add_option("--print_detail", action="store_true", dest="print_detail", 
         default=False, help="print the detail of the sampling.")
 
+    parser.add_option("--mate_mode", dest="mate_mode", default="pair",
+        help=("The mode for using paired-end reads: auto, pair, single "
+        "[default: %default]."))
+    parser.add_option("--auto_min", dest="auto_min", default="200",
+        help=("The minimum pairs of read mates in auto mode. "
+        "[default: %default]."))
+    parser.add_option("--fl_mean", dest="fl_mean", default=None,
+        help=("The fragment length mean, default is auto detection "
+              "[default: %default]."))
+    parser.add_option("--fl_std", dest="fl_std", default=None,
+        help=("The fragment length standard diveation, default is "
+        "auto detected. [default: %default]."))
     parser.add_option("--theta1", dest="theta1", default="3.0",
-        help="The fixed hyperparameter theta1 for the GP model \
-        [default: %default].")
+        help=("The fixed hyperparameter theta1 for the GP model "
+        "[default: %default]."))
     parser.add_option("--theta2", dest="theta2", default=None,
-        help="The fixed hyperparameter theta2 for the GP model \
-        The default will cover 1/3 of the duration. [default: %default].")
+        help=("The fixed hyperparameter theta2 for the GP model. The "
+        "default will cover 1/3 of the duration. [default: %default]."))
     parser.add_option("--max_run", dest="max_run", default="5000",
-        help="The maximum iterations for the MCMC sampler \
-        [default: %default].")
+        help=("The maximum iterations for the MCMC sampler "
+        "[default: %default]."))
     parser.add_option("--min_run", dest="min_run", default="1000",
-        help="The minimum iterations for the MCMC sampler \
-        [default: %default].")
+        help=("The minimum iterations for the MCMC sampler "
+        "[default: %default]."))
     parser.add_option("--gap_run", dest="gap_run", default="100",
-        help="The increase gap of iterations for the MCMC sampler \
-        [default: %default].")
+        help=("The increase gap of iterations for the MCMC sampler "
+        "[default: %default]."))
 
     (options, args) = parser.parse_args()
     if len(sys.argv[1:]) == 0:
@@ -249,20 +275,19 @@ def main():
         genes = anno["genes"]
         global TOTAL_GENE
         TOTAL_GENE = len(genes)
+
     if options.sam_list == None:
         print("Error: need --sam_list for reads indexed and aliged reads.")
         sys.exit(1)
     else:
         sam_list = options.sam_list.split("---")
         global TOTAL_READ
-        for s in sam_list:
+        for i in range(len(sam_list)):
+            sam_list[i] = sam_list[i].split(",")
             _cnt = 0
-            ss_list = s.split(",")
-            for ss in ss_list:
-                bashCommand = "samtools view -c " + ss
-                process = subprocess.Popen(bashCommand.split(), 
-                    stdout=subprocess.PIPE)
-                _cnt += float(process.communicate()[0].split()[0])
+            for ss in sam_list[i]:
+                _map_num = np.loadtxt(pysam.idxstats(ss), "str")[:,2]
+                _cnt += _map_num.astype("float").sum()
             TOTAL_READ.append(_cnt)
 
     no_twice = options.no_twice
@@ -281,12 +306,23 @@ def main():
         theta2 = ((max(X) - min(X) + 0.1) / 3.0)**2
     else:
         theta2 = float(options.theta2)
+
+    if options.fl_mean is None:
+    	FLmean = None
+    else:
+    	FLmean = float(options.fl_mean)
+    if options.fl_std is None:
+    	FLstd = None
+    else:
+    	FLstd = float(options.fl_std)
     
     nproc = int(options.nproc)
     ref_file  = options.ref_file
     out_file  = options.out_file
-    bias_file = options.bias_file
+    auto_min  = int(options.auto_min)
+    mate_mode = options.mate_mode
     bias_mode = options.bias_mode
+    bias_file = options.bias_file.split("---")
     sample_num = int(options.sample_num)
 
     if ref_file is None: 
@@ -294,12 +330,10 @@ def main():
             bias_mode = "unif"
             print("No reference sequence, so we change to uniform mode.")
 
-    if bias_file is None: 
-        biasFile = None
+    if len(bias_file) == 0: 
         if bias_mode != "unif":
             bias_mode = "unif"
             print("No bias parameter file, so we change to uniform mode.")
-    else: biasFile = BiasFile(bias_file)
 
     global FID1, FID2
     FID1 = open(out_file + ".dice", "w")
@@ -320,16 +354,18 @@ def main():
     if nproc <= 1:
         for g in genes:
             if add_premRNA: g.add_premRNA()
-            RV = get_psi(g, sam_list, ref_file,  biasFile, bias_mode, X, M, 
-                 initial, gap, theta1, theta2, no_twice, sample_num, print_detail)
+            RV = get_psi(g, sam_list, ref_file,  bias_file, bias_mode, X, M, 
+                 initial, gap, theta1, theta2, no_twice, sample_num, 
+                 print_detail, FLmean, FLstd, mate_mode, auto_min)
             show_progress(RV)
     else:
         pool = multiprocessing.Pool(processes=nproc)
         for g in genes:
             if add_premRNA: g.add_premRNA()
-            pool.apply_async(get_psi, (g, sam_list, ref_file,  biasFile, bias_mode,
-                 X, M, initial, gap, theta1, theta2, no_twice, sample_num, 
-                 print_detail), callback=show_progress)
+            pool.apply_async(get_psi, (g, sam_list, ref_file,  bias_file, 
+                bias_mode, X, M, initial, gap, theta1, theta2, no_twice, 
+                sample_num, print_detail, FLmean, FLstd, mate_mode, 
+                auto_min), callback=show_progress)
         pool.close()
         pool.join()
     FID1.close()

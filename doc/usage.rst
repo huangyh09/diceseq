@@ -67,7 +67,7 @@ There are more parameters for setting (``diceseq -h`` always give the version yo
 * ``--sam_list`` or ``-s`` (default=None): The indexed alignement file in bam/sam format, use ``,`` for replicates and ``---`` for time points, e.g., my_sam1_rep1.sorted.bam,my_sam1_rep2.sorted.bam---my_sam2.sorted.bam.
 * ``--ref_file`` or ``-r`` (default=None): The genome reference file in fasta format. This is necessary for bias correction, otherwise uniform mode will be used.
 * ``--out_file`` or ``-o`` (default=diceseq_out): The prefix of the output file. There will be two output file, one in plain text format, the other in gzip format.
-* ``--bias_file`` or ``-b`` (default=None): The file for bias parameter.
+* ``--bias_file`` or ``-b`` (default=""): The files for bias parameter. You could use one bise file for all time points, or use T bias files for each time point, by ``---``, e.g., file1.bias---file2.bias
 * ``--bias_mode`` (default=unif): The bias mode: unif, end5, end3 or both. Without ``ref_file`` or ``--bias_file``, it will be changed into unif.
 
 * ``--time_seq`` or ``-t`` (default=None): The time for the input samples, e.g., 0,1,2,3, the default values will be the index of all time points, i.e., 0,1,...
@@ -78,6 +78,11 @@ There are more parameters for setting (``diceseq -h`` always give the version yo
 * ``--no_twice``: No quick estimate of the variance, but use fixed.
 * ``--print_detail``: Print the detail of the sampling.
 
+* ``--mate_mode`` (default=pair): The mode for using paired-end reads: auto, pair, single.
+* ``--auto_min`` (default=200): The minimum pairs of read mates if mate_mode=auto.
+* ``--fl_mean`` (default=None, i.e., auto dected): The mean of fragment length.
+* ``--fl_std`` (default=None, i.e., auto dected): The standard deviation of fragment length.
+
 * ``--max_run`` (default=5000): The maximum iterations for the MCMC sampler.
 * ``--min_run`` (default=1000): The minimum iterations for the MCMC sampler.
 * ``--gap_run`` (default=100): The increase gap of iterations for the MCMC sampler.
@@ -85,7 +90,7 @@ There are more parameters for setting (``diceseq -h`` always give the version yo
 * ``--theta2`` (default=None): The fixed hyperparameter theta2 for the GP model. The default will cover 1/3 of the duration.
 
 
-Suggestions on setting hyperparameter :math:`\theta_2`: if you want :math:`\theta_2` cover :math:`\eta \in (0,1)` of duration, then you should set :math:`\theta_2=(\eta(t_{max}-t_{min}))^2`. The default is :math:`\eta = 1/3`.
+Suggestions on setting hyperparameter :math:`\theta_2`: if you want :math:`\theta_2` cover :math:`\eta \in (0,1)` of duration, then you should set :math:`\theta_2=(\eta(t_{max}-t_{min}))^2`. The default is :math:`\eta = 1/3`. Generally, we suggest using a small :math:`\theta_2`, e.g., covering less than 1/3 length, while it really depends on the time scale.
 
 
 dice-count
