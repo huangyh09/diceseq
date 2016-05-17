@@ -128,15 +128,17 @@ def get_psi(gene, sam_list, ref_file,  bias_file, bias_mode, X, M, initial, gap,
         if no_twice == False:
             _var = np.zeros(R_all[0].shape[1]-1)
             for j in range(len(R_all)):
-                _Psi, _Y, _theta, _Pro, _Lik, _cnt, _m = Psi_GP_MH(R_all[j:j+1],
+                _Psi, _Y, _theta2, _Pro, _Lik, _cnt, _m = Psi_GP_MH(R_all[j:j+1],
                     len_iso_all[j:j+1], prob_iso_all[j:j+1], X[j:j+1], 
                     Ymean[:,j:j+1], var, theta1, theta2, 100, 100, 50)
                 _var += np.var(_Y[int(_m/4):, :-1, 0], axis=0)
             var = (_var + 0.000001) / len(R_all)
+            theta2_var = np.var(_theta2[int(_m/4):, 0])/10.0 + 0.001
         # print(var)
 
-        _Psi, _Y, _theta, _Pro, _Lik, _cnt, _m = Psi_GP_MH(R_all, len_iso_all, 
-            prob_iso_all, X, Ymean, var, theta1, theta2, M, initial, gap)
+        _Psi, _Y, _theta2, _Pro, _Lik, _cnt, _m = Psi_GP_MH(R_all, len_iso_all, 
+            prob_iso_all, X, Ymean, var, theta1, theta2, M, initial, gap, 
+            theta2_std=theta2_var)
         print_info += (" %d acceptances in %d iterations." %(_cnt, _m))
 
         psi_95 = []
@@ -144,7 +146,7 @@ def get_psi(gene, sam_list, ref_file,  bias_file, bias_mode, X, M, initial, gap,
             psi_95.append(get_CI(_Psi[int(_m/4):, c, :], 0.95))
         psi_mean = _Psi[int(_m/4):, :, :].mean(axis=0)
         lik_marg = harmonic_mean_log(_Lik[int(_m/4):])
-        theta_mean = _theta[int(_m/4):,:].mean(axis=0)
+        theta2_avg = _theta2[int(_m/4):,:].mean(axis=0)
         sample_all = _Y[-sample_num:,:-1,:]
     if pout: print("\n" + print_info)
 
@@ -166,11 +168,11 @@ def get_psi(gene, sam_list, ref_file,  bias_file, bias_mode, X, M, initial, gap,
                 psi_95[c][t,1], psi_95[c][t,0])
         diceL += _line + "\n"
 
-    _theta2 = []
-    for tt in range(len(theta_mean)):
-        _theta2.append("%.2e" %_theta[int(_m/4):,tt].mean())
-    sampL = "@%s|%s|%s\n" %(gene_info[0], gene_info[-1], ",".join(_theta2))
-    for ss in range(sample_num):
+    Theta2 = []
+    for tt in range(_theta2.shape[1]):
+        Theta2.append("%.2e" %_theta2[int(_m/4):,tt].mean())
+    sampL = "@%s|%s|%s\n" %(gene_info[0], gene_info[-1], ",".join(Theta2))
+    for ss in range(min(int(0.5*_m), sample_num)):
         for tt in range(_Y.shape[2]):
             _line_time = []
             for cc in range(_Y.shape[1]):
@@ -249,7 +251,7 @@ def main():
     parser.add_option("--theta2", dest="theta2", default=None,
         help=("The fixed hyperparameter theta2 for the GP model. The "
         "default will cover 1/3 of the duration. [default: %default]."))
-    parser.add_option("--max_run", dest="max_run", default="5000",
+    parser.add_option("--max_run", dest="max_run", default="20000",
         help=("The maximum iterations for the MCMC sampler "
         "[default: %default]."))
     parser.add_option("--min_run", dest="min_run", default="1000",
@@ -304,8 +306,10 @@ def main():
     theta1 = float(options.theta1)
     if options.theta2 is None:
         theta2 = ((max(X) - min(X) + 0.1) / 3.0)**2
+    elif options.theta2 == 'learn':
+        theta2 = None
     else:
-        theta2 = float(options.theta2)
+        theta2 = max(0.00001, float(options.theta2))
 
     if options.fl_mean is None:
     	FLmean = None
@@ -317,9 +321,9 @@ def main():
     	FLstd = float(options.fl_std)
     
     nproc = int(options.nproc)
-    ref_file  = options.ref_file
-    out_file  = options.out_file
-    auto_min  = int(options.auto_min)
+    ref_file = options.ref_file
+    out_file = options.out_file
+    auto_min = int(options.auto_min)
     mate_mode = options.mate_mode
     bias_mode = options.bias_mode
     bias_file = options.bias_file.split("---")
