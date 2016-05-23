@@ -42,7 +42,7 @@ def show_progress(RV=None):
     return RV
 
 def get_count(gene, sam_file, total_reads, rm_duplicate, inner_only, mapq_min, 
-    mismatch_max, rlen_min, is_mated, total_only):
+    mismatch_max, rlen_min, is_mated, total_only, overhang):
     samFile = load_samfile(sam_file)
     reads = fetch_reads(samFile, gene.chrom, gene.start, gene.stop, 
         rm_duplicate, inner_only, mapq_min, mismatch_max, rlen_min, is_mated)
@@ -52,17 +52,17 @@ def get_count(gene, sam_file, total_reads, rm_duplicate, inner_only, mapq_min,
         RPKM  = [count[0] * 10**9 / abs(gene.start - gene.stop) / total_reads]
     elif gene.tranNum == 1 and gene.trans[0].exonNum == 2:
         rdSet = ReadSet(reads["reads1u"])
-        rdSet.get_loc_idx(gene.trans[0].exons, gene.strand)
+        rdSet.get_loc_idx(gene.trans[0].exons, gene.strand, overhang)
         count = rdSet.loc_idx.sum(axis=0)
         RPKM  = rdSet.RPK_use.sum(axis=0)
 
         rdSet = ReadSet(reads["reads2u"])
-        rdSet.get_loc_idx(gene.trans[0].exons, gene.strand)
+        rdSet.get_loc_idx(gene.trans[0].exons, gene.strand, overhang)
         count += rdSet.loc_idx.sum(axis=0)
         RPKM  += rdSet.RPK_use.sum(axis=0)
 
         rdSet = ReadSet(reads["reads1"], reads["reads2"])
-        rdSet.get_loc_idx(gene.trans[0].exons, gene.strand)
+        rdSet.get_loc_idx(gene.trans[0].exons, gene.strand, overhang)
         count += rdSet.loc_idx.sum(axis=0)
         RPKM  += rdSet.RPK_use.sum(axis=0)
 
@@ -97,6 +97,8 @@ def main():
         help="the maximum mismatch for reads. [default: %default]")
     parser.add_option("--rlen_min", dest="rlen_min", default="1", 
         help="the mimimum length of reads. [default: %default]")
+    parser.add_option("--overhang", dest="overhang", default="1", 
+        help="the length of overhang on junctions. [default: %default]")
 
     parser.add_option("--duplicate", action="store_true", 
         dest="duplicate_use", default=False, help="keep duplicate reads.")
@@ -133,6 +135,7 @@ def main():
     total_reads = _map_num.astype("float").sum()
 
     nproc = int(options.nproc)
+    overhang = int(options.overhang)
     mapq_min = int(options.mapq_min)
     rlen_min = int(options.rlen_min)
     mismatch_max = int(options.mismatch_max)
@@ -168,7 +171,7 @@ def main():
             if total_only == False and (g.tranNum > 1 or g.trans[0].exonNum != 2):
                 continue
             RV = get_count(g, sam_file, total_reads, rm_duplicate, inner_only, 
-                mapq_min, mismatch_max, rlen_min, is_mated, total_only)
+                mapq_min, mismatch_max, rlen_min, is_mated, total_only, overhang)
             show_progress(RV)
     else:
         pool = multiprocessing.Pool(processes=nproc)
@@ -176,8 +179,8 @@ def main():
             if total_only == False and (g.tranNum > 1 or g.trans[0].exonNum != 2):
                 continue
             pool.apply_async(get_count, (g, sam_file, total_reads, rm_duplicate, 
-                inner_only, mapq_min, mismatch_max, rlen_min, is_mated, total_only), 
-                callback=show_progress)
+                inner_only, mapq_min, mismatch_max, rlen_min, is_mated, total_only,
+                overhang),  callback=show_progress)
         pool.close()
         pool.join()
     FID.close()
