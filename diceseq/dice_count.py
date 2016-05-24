@@ -131,8 +131,9 @@ def main():
     else:
         sam_file = options.sam_file
 
-    _map_num = np.loadtxt(pysam.idxstats(sam_file), "str")[:,2]
-    total_reads = _map_num.astype("float").sum()
+    total_reads = 0
+    for tp in pysam.idxstats(sam_file): 
+        total_reads += float(tp.split()[2])
 
     nproc = int(options.nproc)
     overhang = int(options.overhang)
