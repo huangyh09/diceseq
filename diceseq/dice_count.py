@@ -133,7 +133,9 @@ def main():
 
     total_reads = 0
     for tp in pysam.idxstats(sam_file): 
-        total_reads += float(tp.split()[2])
+        tmp = tp.strip().split("\t")
+        if len(tmp) >= 3:
+            total_reads += float(tmp[2])
 
     nproc = int(options.nproc)
     overhang = int(options.overhang)

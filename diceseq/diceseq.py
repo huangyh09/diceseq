@@ -288,9 +288,10 @@ def main():
             sam_list[i] = sam_list[i].split(",")
             _cnt = 0
             for ss in sam_list[i]:
-                total_reads = 0
                 for tp in pysam.idxstats(ss): 
-                    _cnt += float(tp.split()[2])
+                    tmp = tp.strip().split("\t")
+                    if len(tmp) >= 3:
+                        _cnt += float(tmp[2])
             TOTAL_READ.append(_cnt)
 
     no_twice = options.no_twice
