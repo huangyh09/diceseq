@@ -288,7 +288,10 @@ def main():
             sam_list[i] = sam_list[i].split(",")
             _cnt = 0
             for ss in sam_list[i]:
-                for tp in pysam.idxstats(ss): 
+                pysam_stats = pysam.idxstats(ss)
+                if type(pysam_stats) is not list:
+                    pysam_stats = pysam_stats.split("\n")
+                for tp in pysam_stats: 
                     tmp = tp.strip().split("\t")
                     if len(tmp) >= 3:
                         _cnt += float(tmp[2])
