@@ -1,8 +1,8 @@
-# Copyright(c) 2014, The DICEseq developer (Yuanhua Huang)
+# Copyright(c) 2016, The DICEseq developer (Yuanhua Huang)
 # Licensed under the MIT License at
 # http://opensource.org/licenses/MIT
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 from .utils.reads_utils import ReadSet
 from .utils.out_utils import DiceFile, SampleFile

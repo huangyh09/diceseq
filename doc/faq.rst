@@ -2,8 +2,8 @@
 FAQ
 ===
 
-1. input ``sam_list`` in `diceseq`
-----------------------------------
+input ``sam_list`` in `diceseq`
+===============================
 
 The format of ``sam_list`` is a string line, e.g.
 
@@ -15,14 +15,14 @@ The format of ``sam_list`` is a string line, e.g.
 Please do not directly use a list file containing the sam files. Otherwise you need load it via bash command by yourself. Note: the delimiter ``,`` means merging the two samples, and ``---`` means different time points.
 
 
-2. compatibility with pysam
----------------------------
+compatibility with pysam
+------------------------
 
 If you are using `pysam` 0.8.2 or higher version, please use `diceseq` 0.1.2 or higher.
 
 
-3. compatibility with numpy
----------------------------
+compatibility with numpy
+------------------------
 
 If you are using `numpy` 1.8.2 or higher version, please use `diceseq` 0.1.3 or higher.
 

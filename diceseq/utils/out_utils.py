@@ -82,27 +82,19 @@ class SampleFile:
         
 class DiceFile:
     """docstring for DiceFile"""
-    def __init__(self, dice_file):
-        dice_data = np.loadtxt(dice_file, skiprows=1, delimiter="\t", dtype="str")
-        idx = np.arange(int((dice_data.shape[1]-4) / 3))
-        self.gene = dice_data[:,0]
-        self.LogLike = dice_data[:,3].astype("float")
-        self.GeneCount = dice_data[:,idx*3+4].astype("float")
-        
-        self.tran, self.tranLen = [], []
-        self.IsoRatio, self.CI95 = [], []
-        for i in range(len(self.gene)):
-            self.tran.append(dice_data[i,1].split(","))
-            self.tranLen.append(np.array(dice_data[i,2].split(","), "float"))
-            _IsoRatio = np.zeros((len(idx), len(self.tranLen[i])))
-            _CI95 = np.zeros((len(idx), len(self.tranLen[i]), 2))
-            for j in idx:
-                _IsoRatio[j, :] = dice_data[i,j*3+5].split(",")
-                _temp = dice_data[i,j*3+6].split(",")
-                for k in range(len(_temp)):
-                    _CI95[j, k, :] = _temp[k].split(":")
-            self.IsoRatio.append(_IsoRatio)
-            self.CI95.append(_CI95)
+    def __init__(self, file):
+        dice_data = np.loadtxt(file, skiprows=1, delimiter="\t", dtype="str")
+        idx = np.arange(int((dice_data.shape[1]-4) / 4))
+        self.tran = dice_data[:,0]
+        self.gene = dice_data[:,1]
+        self.FPKM = dice_data[:,idx*4+4].astype("float")
+        self.LogLike = dice_data[:,2].astype("float")
+        self.tranLen = dice_data[:,3].astype("float")
+        self.IsoRatio = dice_data[:,idx*4+5].astype("float")
+
+        self.IsoCI95s = np.zeros((dice_data.shape[0], len(idx), 2))
+        self.IsoCI95s[:,:,0] = dice_data[:,idx*4+6].astype("float")
+        self.IsoCI95s[:,:,1] = dice_data[:,idx*4+7].astype("float")
 
 
 def get_CI(data, percent=0.95):

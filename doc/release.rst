@@ -1,6 +1,20 @@
-=====================
-Release notes (major)
-=====================
+=============
+Release notes
+=============
+
+Release 0.2.1 (16/06/2016)
+==========================
+
+* updated calculating TOTAL_COUNTS for pysam 0.90
+* update documentary by adding more examples and tutorials
+
+
+Release 0.2.0 (16/05/2016)
+==========================
+
+* fixed some bugs
+* cleaned some codes
+
 
 Release 0.1.9 (29/01/2016)
 ==========================

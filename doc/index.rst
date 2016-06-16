@@ -2,8 +2,8 @@ DICEseq Homepage
 ================
 
 :Author: Yuanhua Huang
-:Version: 0.2.0
-:Last viewed: May 17, 2016
+:Version: 0.2.1
+:Last viewed: June 16, 2016
 
 About DICEseq
 -------------
@@ -38,6 +38,7 @@ Contents
 
    install.rst
    usage.rst
+   tutorial.rst
    api.rst
    faq.rst
    release.rst
@@ -55,6 +56,9 @@ Yuanhua Huang and Guido Sanguinetti. \ **Statistical modeling of isoform splicin
 
    SourceForge package: including splicing annotation files
       http://sourceforge.net/projects/diceseq/files/annotation/
+
+   Splicing event generator: modified from Yarden's rnaseqlib
+      https://github.com/huangyh09/MISO/tree/fastmiso/misopy/events_maker
 
    MISO package: Mixture of Isoforms
       https://miso.readthedocs.io/en/fastmiso/
