@@ -332,7 +332,7 @@ def load_annotation(anno_gtf, source="Ensembl"):
 
     if source == "SGD" or source == "sgd":
         genes = sgd_gtf(anno_in)
-    elif source == "MISO" or source == "miso":
+    elif ["MISO", "miso", "gff3", "GFF3"].count(source) == 1:
         genes = miso_gtf(anno_in)
     elif source == "Sander" or source == "sander":
         genes = sander_gtf(anno_in)

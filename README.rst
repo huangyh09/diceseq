@@ -9,19 +9,19 @@ DICEseq (Dynamic Isoform spliCing Estimator via sequencing data) estimates the d
 DICEseq provides following functions through command line:
 
 1. ``diceseq``: 
-  * Estimate the isoform proportions and FPKM jointly or separately. 
 
-  * Calculate the Bayes factor to detect the differential dynamics of splicing profile.
+* Estimate the isoform proportions and FPKM jointly or separately. 
+* Calculate the Bayes factor to detect the differential dynamics of splicing profile.
 
 2. ``dice-count``: 
-  * Get the total reads counts of each gene. 
 
-  * Get the specific reads counts, e.g., junction reads, for genes with exactly one intron. This is particularly design for yeast.
+* Get the total reads counts of each gene. 
+* Get the specific reads counts, e.g., junction reads, for genes with exactly one intron. This is particularly design for yeast.
 
 3. ``dice-bias``: 
-  * Estimate fragment length distribution.
-  
-  * Estimate reads sequence and position bias parameter. The output file can be directly used for bias correction in ``diceseq``.
+
+* Estimate fragment length distribution.
+* Estimate reads sequence and position bias parameter. The output file can be directly used for bias correction in ``diceseq``.
 
 In addition, DICEseq package also provides interface of a set of functions and attributes as an object-oriented python module. Therefore, you could use some of the module e.g., ``SampleFile`` to visualize the samples in gzip file in a Gaussian process way, or ``BiasFile`` to visualize the bias parameters. Also, the ``gtf_utils`` provides a set of ways to load gtf file, choose the genes, or customize the coordinates of exons and introns, add and remove of specific transcripts.
 
@@ -36,6 +36,5 @@ See the documentation_ on how to install, to use, to find the annotation data et
 References
 ----------
 
-Yuanhua Huang and Guido Sanguinetti. \ **Statistical modeling of isoform splicing dynamics from RNA-seq time series data**\. (`under review`_)
-
-.. _under review: 
+Yuanhua Huang and Guido Sanguinetti. `Statistical modeling of isoform splicing dynamics from RNA-seq time series data 
+<http://bioinformatics.oxfordjournals.org/content/early/2016/07/08/bioinformatics.btw364>`_. \ **Bioinformatics**\ , 2016, btw364.

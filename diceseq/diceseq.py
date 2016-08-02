@@ -1,6 +1,7 @@
 # This is a main file to run the diceseq software, which will return the 
 # isoform proportions ratio for each gene at all time points.
 
+import os
 import sys
 import gzip
 import time
@@ -198,19 +199,19 @@ def main():
     parser = OptionParser()
     parser.add_option("--anno_file", "-a", dest="anno_file", default=None,
         help="The annotation file in gtf format.")
-    parser.add_option("--anno_source", dest="anno_source", default="Ensembl",
+    parser.add_option("--anno_source", dest="anno_source", default="GTF",
         help="The annotation source of the gtf file [default: %default].")
     parser.add_option("--sam_list", "-s", dest="sam_list", default=None,
         help=("the indexed alignement file in bam/sam format, use ',' for "
-        "replicates and '---' for time points, e.g., "
-        "my_sam1_rep1.sorted.bam,my_sam1_rep2.sorted.bam---my_sam2.sorted.bam."))
+        "replicates and ';' for time points, e.g., "
+        "my_sam1_rep1.sorted.bam,my_sam1_rep2.sorted.bam;my_sam2.sorted.bam."))
     parser.add_option("--ref_file", "-r", dest="ref_file", default=None,
         help=("The genome reference file in fasta format. This is necessary "
         "for bias correction, otherwise uniform mode will be used."))
     parser.add_option("--bias_file", "-b", dest="bias_file", default="",
         help="The files for bias parameter. You could use one bise file for all "
-        "time points, or use T bias files for each time point, by '---', e.g., "
-        "file1.bias---file2.bias")
+        "time points, or use T bias files for each time point, by ';', e.g., "
+        "file1.bias;file2.bias")
     parser.add_option("--bias_mode", dest="bias_mode", default="unif", 
         help=("The bias mode: unif, end5, end3 or both. without ref_file, it "
         "will be changed into unif [default: %default]."))
@@ -282,12 +283,18 @@ def main():
         print("Error: need --sam_list for reads indexed and aliged reads.")
         sys.exit(1)
     else:
-        sam_list = options.sam_list.split("---")
+        _delimiter = ";"
+        if options.sam_list.count(";") == 0:
+            _delimiter = "---"
+        sam_list = options.sam_list.split(_delimiter)
         global TOTAL_READ
         for i in range(len(sam_list)):
             sam_list[i] = sam_list[i].split(",")
             _cnt = 0
             for ss in sam_list[i]:
+                if not os.path.isfile(ss):
+                    print("Error: No such file\n    -- %s" %ss)
+                    sys.exit(1)
                 pysam_stats = pysam.idxstats(ss)
                 if type(pysam_stats) is not list:
                     pysam_stats = pysam_stats.split("\n")
@@ -331,8 +338,11 @@ def main():
     auto_min = int(options.auto_min)
     mate_mode = options.mate_mode
     bias_mode = options.bias_mode
-    bias_file = options.bias_file.split("---")
     sample_num = int(options.sample_num)
+    _delimiter = ";"
+    if options.sam_list.count(";") == 0:
+        _delimiter = "---"
+    bias_file = options.bias_file.split(_delimiter)
 
     if ref_file is None: 
         if bias_mode != "unif":
@@ -345,6 +355,12 @@ def main():
             print("No bias parameter file, so we change to uniform mode.")
 
     global FID1, FID2
+    if not os.path.exists(os.path.dirname(out_file)):
+        try:
+            os.makedirs(os.path.dirname(out_file))
+        except OSError as exc: # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise
     FID1 = open(out_file + ".dice", "w")
     headline = "tran_id\tgene_id\tlogLik\ttransLen"
     for i in range(len(X)):

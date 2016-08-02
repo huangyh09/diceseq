@@ -241,3 +241,197 @@ def Psi_analytic(R_mat, len_isos):
     RV = Psi_freq*len_isos[::-1] / np.sum(Psi_freq*len_isos[::-1])
     return RV
 
+
+
+
+def Iso_read_check(R_mat, len_isos, prob_isos):
+    """
+    Check the input data for isoform quantification.
+
+    Parameters
+    ----------
+    R_mat : 2-D array_like, (N, K)
+        N reads identities of belonging to K isoforms.
+    prob_isos : 2-D array_like, (N, K)
+        N reads probablity of belonging to K isoforms.
+    len_isos : 1-D array_like, (K,)
+        The effective length of each isoform.
+
+    Returns
+    -------
+    prob_isos : 2-D array_like, (N, K)
+        N reads probablity of belonging to K isoforms.
+    len_isos : 1-D array_like, (K,)
+        The effective length of each isoform.
+    """
+    idx = (len_isos != len_isos)
+    len_isos[idx] = 0.0
+    prob_isos[:,idx] = 0.0
+    R_mat[:,idx] = False
+
+    idx = np.where(R_mat != R_mat)
+    R_mat[idx] = False
+
+    idx = np.where(prob_isos != prob_isos)
+    prob_isos[idx] = 0.0
+
+    idx = (R_mat.sum(axis=1) > 0) * (prob_isos.sum(axis=1) > 0)
+    R_mat = R_mat[idx,:]
+    prob_isos = prob_isos[idx,:]
+
+    return R_mat, prob_isos, len_isos
+
+
+### adaptive MCMC
+def Psi_MH(R_mat, len_isos, prob_isos, cov=None, alpha_Dir=None, M=10000,
+    initial=500, gap=100):
+    """
+    Calculate the proportion of each isoforms with all reads via MCMC samplling
+    Parameters
+    ----------
+    R_mat : 2-D array_like, (N, K)
+        N reads identities of belonging to K isoforms.
+    len_isos : 1-D array_like, (K,)
+        The effective length of each isoform.
+    cov : 2-D array_like, (K-1, K-1)
+        The fixed covariance of multivariate normal distribution of Y.
+    alpha_Dir : 1-D array_like, (K,)
+        The hyper-parameter of Dirichlet distribution, the prior.
+    M : int
+        The maximum iteration times of MH sampler, default=10000.
+    initial : int
+        The minmum iteration times of MH sampler, default=1000.
+    gap : 
+        The gap iteration times of MH sampler, default=100.
+
+    Returns
+    -------
+    Psi_all : 2-D array_like, (M, K)
+        M sampled Psi for abundance of each isoforms
+    Y_all : 2-D array_like, (M, K)
+        M sampled Psi for abundance of each isoforms
+    cnt : float
+        The accepted times of iterations
+    """
+    # 1. check input data
+    R_mat, prob_isos, len_isos = Iso_read_check(R_mat, len_isos, prob_isos)
+    prob_isos = R_mat * prob_isos
+
+    N, K = prob_isos.shape
+    if cov is None:
+        cov = 1.5 * np.identity(K-1) / (K-1)
+    if alpha_Dir is None:
+        alpha_Dir = np.ones(K)
+
+    # MCMC random initializations
+    Y_now = np.zeros(K)
+    psi_now = np.exp(Y_now) / np.sum(np.exp(Y_now))
+    fsi_now = len_isos*psi_now / np.sum(len_isos*psi_now)
+    P_now = Dirichlet_pdf(psi_now, alpha_Dir, log=True)
+    P_now += np.sum(np.log(np.dot(prob_isos, fsi_now)))
+    
+    # MCMC running
+    cnt = 0
+    Y_avg = 0.0
+    Y_var = 0.0
+    Y_try = np.zeros(K)
+    Y_all = np.zeros((M, K))
+    psi_try = np.zeros(K)
+    Psi_all = np.zeros((M, K))
+    for m in range(M):
+        P_try, Q_now, Q_try = 0, 0, 0
+        # step 1: propose a value
+        Y_try[:K-1] = np.random.multivariate_normal(Y_now[:K-1], cov)
+        Y_try[Y_try < -700] = -700
+        Y_try[Y_try > 700 ] = 700
+
+        Q_now += normal_pdf(Y_now[:K-1], Y_try[:K-1], cov)
+        Q_try += normal_pdf(Y_try[:K-1], Y_now[:K-1], cov)
+
+        psi_try = np.exp(Y_try) / np.sum(np.exp(Y_try))
+        fsi_try = len_isos*psi_try / np.sum(len_isos*psi_try)
+        P_try += Dirichlet_pdf(psi_try, alpha_Dir, log=True)
+        P_try += np.sum(np.log(np.dot(prob_isos, fsi_try)))
+        
+        # step 2: calculate the MH ratio, accept or reject the proposal
+        alpha = np.exp(min(P_try+Q_now-P_now-Q_try, 0))
+        # print alpha, np.exp(P_try), np.exp(Q_now), np.exp(P_now), np.exp(Q_try)
+        if alpha is None: 
+            print("alpha is none!")
+        elif np.random.rand(1) < alpha:
+            cnt += 1
+            Y_now  = Y_try  + 0
+            psi_now = psi_try + 0
+            fsi_now = fsi_try + 0
+            P_now   = P_try   + 0
+        Y_all[m,:] = Y_now
+        Psi_all[m,:] = psi_now
+
+        #step 3. convergence diagnostics
+        if m >= initial and m % gap == 0:
+            conv = True
+            for k in range(K):
+                Z = Geweke_Z(Psi_all[:m, k])
+                if Z is None or Z > 2: 
+                    conv = False
+                    break
+            if conv:
+                Y_all = Y_all[:m,:]
+                Psi_all = Psi_all[:m,:]
+                break
+
+        _avg1 = (Y_avg*m + Y_now) / (m+1.0)
+        Y_var = (Y_var*m + (Y_now-_avg1)*(Y_now-Y_avg)) / (m+1.0)
+        Y_avg = _avg1 + 0.0
+
+        # adaptive MCMC
+        if m >= 11: #and m % gap == 0:
+            cov = np.cov(Y_all[:m,:-1].T) + np.diag(np.ones(K-1))*0.001
+            cov = cov * 5.0 / (K-1) / (1 + prob_isos.shape[0]/500.0)
+
+            # cov1 = np.diag(Y_var[:-1]+0.001)
+            # cov2 = np.cov(Y_all[:m,:-1].T)
+            # beta = 0.05 #min((K-1)/20.0, 1.0)
+            # cov = 5.5 / (K-1) * (beta*cov1 + (1-beta)*cov2) / (1 + prob_isos.shape[0]/500.0)
+            
+            # print("accept ratio: %.3f" %(cnt/(m+1.0)))
+
+    print("Total accept ratio: %.3f for %d isoforms with %d reads." 
+        %(cnt/(m+1.0), prob_isos.shape[1], prob_isos.shape[0]))
+    return Psi_all, Y_all, cnt
+
+
+
+
+
+##### EM
+def Psi_EM(R_mat, len_isos, prob_isos, M=100):
+    # check input data
+    R_mat, prob_isos, len_isos = Iso_read_check(R_mat, len_isos, prob_isos)
+    prob_isos = R_mat * prob_isos
+
+    # random initialization
+    Psi = np.random.dirichlet(np.ones(prob_isos.shape[1]))
+    Fsi = Psi * len_isos / np.sum(Psi * len_isos)
+    Lik = np.log(np.dot(prob_isos, Fsi)).sum()
+    
+    cnt = 0
+    Lik_all = np.zeros(M)
+    for i in range(M):
+        cnt += 1
+        # E step
+        Num = (prob_isos*Fsi)
+        Num = Num / Num.sum(axis=1).reshape(-1,1)
+        Num = Num.sum(axis=0)
+        
+        # M step
+        Pro = Num / len_isos
+        Psi = Pro / sum(Pro)
+        Fsi = Psi * len_isos / sum(Psi * len_isos)
+        Lik = np.log(np.dot(prob_isos, Fsi)).sum()
+        Lik_all[i] = Lik
+
+        # check convergence
+        if i > 0 and (Lik - Lik_all[i-1]) < np.log(1+10**(-5)):
+            break
+    return Psi, Lik_all
