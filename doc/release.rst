@@ -2,6 +2,17 @@
 Release notes
 =============
 
+
+Release 0.2.2 (29/10/2016)
+==========================
+
+* fix some bugs
+* simplify the arguments
+* change default theta1 as 10
+* change default save_sample (original sample_num) into 500
+* keep transcript in diceseq results in the same order as in gtf file
+
+
 Release 0.2.1 (16/06/2016)
 ==========================
 

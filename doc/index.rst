@@ -2,8 +2,8 @@ DICEseq Homepage
 ================
 
 :Author: Yuanhua Huang
-:Version: 0.2.1
-:Last viewed: June 16, 2016
+:Version: 0.2.2
+:Last viewed: Oct 29, 2016
 
 About DICEseq
 -------------
@@ -48,13 +48,16 @@ References
 ----------
 
 Yuanhua Huang and Guido Sanguinetti. `Statistical modeling of isoform splicing dynamics from RNA-seq time series data 
-<http://bioinformatics.oxfordjournals.org/content/early/2016/07/08/bioinformatics.btw364>`_. \ **Bioinformatics**\ , 2016, btw364.
+<http://bioinformatics.oxfordjournals.org/content/32/19/2965.abstract>`_. \ **Bioinformatics**\ (2016) 32 (19): 2965-2972.
 
 
 .. seealso::
 
    SourceForge package: including splicing annotation files
       http://sourceforge.net/projects/diceseq/files/annotation/
+
+   SourceForge package: usage examples
+      http://sourceforge.net/projects/diceseq/files/example/
 
    Splicing event generator: modified from Yarden's rnaseqlib
       https://github.com/huangyh09/MISO/tree/fastmiso/misopy/events_maker

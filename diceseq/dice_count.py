@@ -12,7 +12,9 @@ import pysam
 import subprocess
 import numpy as np
 import multiprocessing
-from optparse import OptionParser
+from optparse import OptionParser, OptionGroup
+
+import pyximport; pyximport.install()
 from .utils.reads_utils import ReadSet
 from .utils.gtf_utils import load_annotation
 from .utils.sam_utils import load_samfile, fetch_reads
@@ -81,35 +83,39 @@ def main():
     #part 0. parse command line options
     parser = OptionParser()
     parser.add_option("--anno_file", "-a", dest="anno_file", default=None,
-        help="The annotation file in gtf format")
-    parser.add_option("--anno_source", dest="anno_source", default="Ensembl",
-        help="The annotation source of the gtf file [default: %default]." )
+        help="Annotation file for genes and transcripts")
     parser.add_option("--sam_file", "-s", dest="sam_file", default=None,
-        help="The indexed alignement file in bam/sam format")
+        help="Sorted and indexed bam/sam files")
     parser.add_option("--out_file", "-o", dest="out_file",  
-        default="dice_count.txt", help="The counts in plain text file")
+        default="dice_count.tsv", help="The counts in tsv file")
 
-    parser.add_option("--nproc", dest="nproc", default="4",
-        help="The number of subprocesses [default: %default].")
-    parser.add_option("--mapq_min", dest="mapq_min", default="10", 
-        help="the minimum mapq for reads. [default: %default]")
-    parser.add_option("--mismatch_max", dest="mismatch_max", default="5", 
-        help="the maximum mismatch for reads. [default: %default]")
-    parser.add_option("--rlen_min", dest="rlen_min", default="1", 
-        help="the mimimum length of reads. [default: %default]")
-    parser.add_option("--overhang", dest="overhang", default="1", 
-        help="the length of overhang on junctions. [default: %default]")
+    group = OptionGroup(parser, "Optional arguments")
+    group.add_option("--nproc", "-p", type="int", dest="nproc", default="4",
+        help="Number of subprocesses [default: %default]")
+    group.add_option("--anno_type", dest="anno_type", default="GTF",
+        help="Type of annotation file: GTF, GFF3, UCSC_table "
+        "[default: %default]")
 
-    parser.add_option("--duplicate", action="store_true", 
-        dest="duplicate_use", default=False, help="keep duplicate reads.")
-    parser.add_option("--partial", action="store_true", dest="partial_use",
-        default=False, help="keep reads partial in the region.")
-    parser.add_option("--single_end", action="store_true", dest="single_end",
-        default=False, help="use the reads as single-end.")
-    parser.add_option("--junction", action="store_true", dest="junction_reads",
+    group.add_option("--mapq_min", dest="mapq_min", default="10", 
+        help="Minimum mapq for reads. [default: %default]")
+    group.add_option("--mismatch_max", dest="mismatch_max", default="5", 
+        help="Maximum mismatch for reads. [default: %default]")
+    group.add_option("--rlen_min", dest="rlen_min", default="1", 
+        help="Minimum length for reads. [default: %default]")
+    group.add_option("--overhang", dest="overhang", default="1", 
+        help="Minimum overhang on junctions. [default: %default]")
+
+    group.add_option("--duplicate", action="store_true", 
+        dest="duplicate_use", default=False, help="keep duplicate reads; "
+        "otherwise not")
+    group.add_option("--partial", action="store_true", dest="partial_use",
+        default=False, help="keep reads partial in the region; otherwise not")
+    group.add_option("--single_end", action="store_true", dest="single_end",
+        default=False, help="use reads as single-end; otherwise paired-end")
+    group.add_option("--junction", action="store_true", dest="junction_reads",
         default=False, help=("return junction and boundary reads, only for "
-        "gene with one exon-intron-exon structure; other wise return total "
-        "counts for the whole gene."))
+        "gene with one exon-intron-exon structure; otherwise no junction."))
+    parser.add_option_group(group)
 
     (options, args) = parser.parse_args()
     if len(sys.argv[1:]) == 0:
@@ -121,7 +127,7 @@ def main():
     else:
         sys.stdout.write("\rloading annotation file...")
         sys.stdout.flush()    
-        anno = load_annotation(options.anno_file, options.anno_source)
+        anno = load_annotation(options.anno_file, options.anno_type)
         sys.stdout.write("\rloading annotation file... Done.\n")
         sys.stdout.flush()
         genes = anno["genes"]
@@ -170,7 +176,7 @@ def main():
         head_line = "gene_id\tgene_name\tbiotype\tgene_length\tcount\tFPKM"
     FID.writelines(head_line + "\n")
 
-    print("running diceseq for %d genes with %d cores..." %(TOTAL_GENE, nproc))
+    print("running dice-count for %d genes with %d cores..." %(TOTAL_GENE, nproc))
 
     if nproc <= 1:
         for g in genes:

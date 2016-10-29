@@ -8,12 +8,11 @@ import time
 import pysam
 import numpy as np
 import multiprocessing
-from optparse import OptionParser
-from .models.model_GP import Psi_GP_MH
-from .utils.sam_utils import load_samfile
+from optparse import OptionParser, OptionGroup
+
+import pyximport; pyximport.install()
 from .utils.gtf_utils import load_annotation
-from .utils.bias_utils import BiasFile, FastaFile
-from .utils.tran_utils import TranUnits, TranSplice
+from .utils.run_utils import get_psi, sort_dice_file
 
 FID1 = None 
 FID2 = None
@@ -42,225 +41,69 @@ def show_progress(RV=None):
     sys.stdout.flush()
     return RV
 
-def get_CI(data, percent=0.95):
-    if len(data.shape) == 0:
-        data = data.reshape(-1,1)
-    RV = np.zeros((data.shape[1],2))
-    CI_idx = int(data.shape[0] * (1-percent)/2)
-    for k in range(data.shape[1]):
-        temp = np.sort(data[:,k])
-        RV[k,:] = [temp[-CI_idx], temp[CI_idx]]
-    return RV
-
-def harmonic_mean_log(data, log_in=True, log_out=True):
-    if log_in is not True:
-        data = np.log(data)
-    RV = np.log(len(data)) + np.min(data, axis=0)
-    RV = RV - np.log(np.sum(np.exp(np.min(data, axis=0) - data), axis=0)) #make sure avoiding log(0)
-    if log_out is not True: RV = np.exp(RV)
-    return RV
-
-def Psi2Y(Psi):
-    Psi = Psi / np.sum(Psi)
-    Y = np.zeros(len(Psi))
-    Y[:-1] = np.log(Psi[:-1] / Psi[-1])
-    return Y
-
-def get_psi(gene, sam_list, ref_file,  bias_file, bias_mode, X, M, initial, gap,
-            theta1, theta2, no_twice, sample_num, pout, FLmean, FLstd, 
-            mate_mode, auto_min):
-    samFiles = []
-    for sam_time in sam_list:
-        _sam = []
-        for sam_rep in sam_time:
-            _sam.append(load_samfile(sam_rep))
-        samFiles.append(_sam)
-    if ref_file is not None: 
-        fastaFile = FastaFile(ref_file)
-
-    R_all, len_iso_all, prob_iso_all, _count = [], [], [], []
-    for i in range(len(samFiles)):
-        t = TranSplice(gene)
-        for j in range(len(samFiles[i])):
-            t.set_reads(samFiles[i][j])
-            if bias_mode != "unif":
-                if len(bias_file) == len(samFiles):
-                    _bias = BiasFile(bias_file[i])
-                elif len(bias_file) == 1:
-                    _bias = BiasFile(bias_file[0])
-                else: continue
-                t.set_sequence(fastaFile)
-                t.set_bias(_bias, "seq") #under development
-                if FLmean is None and _bias.flen_mean != 0: 
-                    FLmean = _bias.flen_mean
-                if FLstd is None and _bias.flen_std != 0: 
-                    FLstd = _bias.flen_std
-
-        t.get_ready(bias_mode, FLmean, FLstd, mate_mode, auto_min)
-        R_all.append(t.Rmat)
-        if bias_mode == "unif": 
-            len_iso_all.append(t.efflen_unif)
-            prob_iso_all.append(t.proU)
-        else: 
-            #len_iso_all.append(t.efflen_bias)
-            len_iso_all.append(t.efflen_unif) #under development
-            prob_iso_all.append(t.proB)
-
-        # for count only
-        if mate_mode != "pair":
-            t.get_ready("unif", FLmean, FLstd, "pair", auto_min)
-        _count.append(np.sum(t.Rmat.sum(axis=1)>0))
-        # print(len(t.read1p), len(t.read1u), len(t.read2u))
-    count = np.array(_count)
-    
-    print_info = ("%s: %d transcript, %d reads." %
-        (gene.geneID, gene.tranNum, np.sum(count)))
-
-    if R_all[0].shape[1] == 1:
-        psi_mean = np.ones((1,len(X)))
-        psi_95 = [np.ones((len(X), 2))]
-        lik_marg = 0.0
-        theta_mean = None
-        sample_all = []
-
-    elif R_all[0].shape[1] > 1:
-        var = 0.1 * np.ones(R_all[0].shape[1] - 1)
-        Ymean = np.zeros((R_all[0].shape[1], len(X)))
-        if no_twice == False:
-            _var = np.zeros(R_all[0].shape[1]-1)
-            for j in range(len(R_all)):
-                _Psi, _Y, _theta2, _Pro, _Lik, _cnt, _m = Psi_GP_MH(R_all[j:j+1],
-                    len_iso_all[j:j+1], prob_iso_all[j:j+1], X[j:j+1], 
-                    Ymean[:,j:j+1], var, theta1, theta2, 100, 100, 50)
-                _var += np.var(_Y[int(_m/4):, :-1, 0], axis=0)
-            var = (_var + 0.000001) / len(R_all)
-            theta2_var = np.var(_theta2[int(_m/4):, 0])/10.0 + 0.001
-        # print(var)
-
-        _Psi, _Y, _theta2, _Pro, _Lik, _cnt, _m = Psi_GP_MH(R_all, len_iso_all, 
-            prob_iso_all, X, Ymean, var, theta1, theta2, M, initial, gap, 
-            theta2_std=theta2_var)
-        print_info += (" %d acceptances in %d iterations." %(_cnt, _m))
-
-        psi_95 = []
-        for c in range(_Psi.shape[1]):
-            psi_95.append(get_CI(_Psi[int(_m/4):, c, :], 0.95))
-        psi_mean = _Psi[int(_m/4):, :, :].mean(axis=0)
-        lik_marg = harmonic_mean_log(_Lik[int(_m/4):])
-        theta2_avg = _theta2[int(_m/4):,:].mean(axis=0)
-        sample_all = _Y[-sample_num:,:-1,:]
-    if pout: print("\n" + print_info)
-
-    # for output
-    gene_info = gene.get_gene_info()
-    transLen = []
-    for tr in gene.trans:
-        transLen.append(tr.tranL)
-    transLen = np.array(transLen)
-
-    diceL = ""
-    for c in range(len(gene.trans)):
-        _line = "%s\t%s\t%.1e\t%d" %(gene.trans[c].tranID, gene.geneID,
-            lik_marg, gene.trans[c].tranL)
-        for t in range(len(X)):
-            fsi = (transLen * psi_mean[:,t]) / np.sum(transLen * psi_mean[:,t])
-            FPKM = count[t] * fsi[c] * 10**9 / transLen[c] / TOTAL_READ[t]
-            _line += "\t%.2e\t%.3f\t%.3f\t%.3f" %(FPKM, psi_mean[c,t],
-                psi_95[c][t,1], psi_95[c][t,0])
-        diceL += _line + "\n"
-
-    Theta2 = []
-    for tt in range(_theta2.shape[1]):
-        Theta2.append("%.2e" %_theta2[int(_m/4):,tt].mean())
-    sampL = "@%s|%s|%s\n" %(gene_info[0], gene_info[-1], ",".join(Theta2))
-    for ss in range(min(int(0.5*_m), sample_num)):
-        for tt in range(_Y.shape[2]):
-            _line_time = []
-            for cc in range(_Y.shape[1]):
-                _line_time.append("%.2e" %_Y[int(_m/2)+ss, cc, tt])
-            sampL += ",".join(_line_time)
-            if tt < _Y.shape[2] - 1: 
-                sampL += ";"
-            else:
-                sampL += "\n"
-    
-    RV = {}
-    RV["dice_line"] = diceL
-    RV["sample_line"] = sampL
-    return RV
-
 
 def main():
     # import warnings
     # warnings.filterwarnings('error')
     print("Welcome to diceseq!")
 
-    #part 0. parse command line options
+    # parse command line options
     parser = OptionParser()
     parser.add_option("--anno_file", "-a", dest="anno_file", default=None,
-        help="The annotation file in gtf format.")
-    parser.add_option("--anno_source", dest="anno_source", default="GTF",
-        help="The annotation source of the gtf file [default: %default].")
+        help="Annotation file for genes and transcripts")
     parser.add_option("--sam_list", "-s", dest="sam_list", default=None,
-        help=("the indexed alignement file in bam/sam format, use ',' for "
-        "replicates and ';' for time points, e.g., "
-        "my_sam1_rep1.sorted.bam,my_sam1_rep2.sorted.bam;my_sam2.sorted.bam."))
-    parser.add_option("--ref_file", "-r", dest="ref_file", default=None,
-        help=("The genome reference file in fasta format. This is necessary "
-        "for bias correction, otherwise uniform mode will be used."))
-    parser.add_option("--bias_file", "-b", dest="bias_file", default="",
-        help="The files for bias parameter. You could use one bise file for all "
-        "time points, or use T bias files for each time point, by ';', e.g., "
-        "file1.bias;file2.bias")
-    parser.add_option("--bias_mode", dest="bias_mode", default="unif", 
-        help=("The bias mode: unif, end5, end3 or both. without ref_file, it "
-        "will be changed into unif [default: %default]."))
-    parser.add_option("--out_file", "-o", dest="out_file",
-        default="diceseq_out", help=("The prefix of the output file. There will"
-        " be two files: one in plain text format, the other in gzip format."))
-    parser.add_option("--sample_num", dest="sample_num", default="0",
-        help=("The number of MCMC samples to save, 0 for no such file. Advice:"
-        " lower than 3/4 of `min_run`, e.g, 500 [default: %default]."))
+        help=("Sorted and indexed bam/sam files, use ',' for replicates "
+        "and '---' for time points, e.g., T1_rep1.bam,T1_rep2.bam---T2.bam"))
     parser.add_option("--time_seq", "-t", dest="time_seq", default=None,
-        help=("The time for the input samples, e.g., 0,1,2,3, the default "
-        "values will be the index of all time points, i.e., 0,1,..."))
+        help="The time for the input samples [Default: 0,1,2,...]")
+    parser.add_option("--out_file", "-o", dest="out_file", default="output", 
+        help="Prefix of the output files with full path")
 
-    parser.add_option("--nproc", dest="nproc", default="4",
-        help="The number of subprocesses [default: %default].")
-    parser.add_option("--add_premRNA", action="store_true", dest="add_premRNA", 
-        default=False, help="add the pre-mRNA as a transcript.")
-    parser.add_option("--no_twice", action="store_true", dest="no_twice", 
-        default=False, help="No quick estimate of the variance, but use fixed.")
-    parser.add_option("--print_detail", action="store_true", dest="print_detail", 
-        default=False, help="print the detail of the sampling.")
+    group = OptionGroup(parser, "Optional arguments")
+    group.add_option("--nproc", "-p", type="int", dest="nproc", default="4",
+        help="Number of subprocesses [default: %default]")
+    group.add_option("--anno_type", dest="anno_type", default="GTF",
+        help="Type of annotation file: GTF, GFF3, UCSC_table "
+        "[default: %default]")
+    group.add_option("--add_premRNA", action="store_true", dest="add_premRNA", 
+        default=False, help="Add the pre-mRNA as a transcript")
+    
+    group.add_option("--fLen", type="float", nargs=2, dest="frag_leng",
+        default=[None,None], help=("Two arguments for fragment length: "
+        "mean and standard diveation, default: auto-detected"))
+    group.add_option("--bias", nargs=3, dest="bias_args",
+        default=["unif","None","None"], help=("Three argments for bias "
+        "correction: BIAS_MODE,REF_FILE,BIAS_FILE(s). BIAS_MODE: unif, end5, "
+        "end3, both. REF_FILE: the genome reference file in fasta format. "
+        "BIAS_FILE(s): bias files from dice-bias, use '---' for time specific "
+        "files, [default: unif None None]"))
 
-    parser.add_option("--mate_mode", dest="mate_mode", default="pair",
-        help=("The mode for using paired-end reads: auto, pair, single "
-        "[default: %default]."))
-    parser.add_option("--auto_min", dest="auto_min", default="200",
-        help=("The minimum pairs of read mates in auto mode. "
-        "[default: %default]."))
-    parser.add_option("--fl_mean", dest="fl_mean", default=None,
-        help=("The fragment length mean, default is auto detection "
-              "[default: %default]."))
-    parser.add_option("--fl_std", dest="fl_std", default=None,
-        help=("The fragment length standard diveation, default is "
-        "auto detected. [default: %default]."))
-    parser.add_option("--theta1", dest="theta1", default="3.0",
-        help=("The fixed hyperparameter theta1 for the GP model "
-        "[default: %default]."))
-    parser.add_option("--theta2", dest="theta2", default=None,
-        help=("The fixed hyperparameter theta2 for the GP model. The "
-        "default will cover 1/3 of the duration. [default: %default]."))
-    parser.add_option("--max_run", dest="max_run", default="20000",
-        help=("The maximum iterations for the MCMC sampler "
-        "[default: %default]."))
-    parser.add_option("--min_run", dest="min_run", default="1000",
-        help=("The minimum iterations for the MCMC sampler "
-        "[default: %default]."))
-    parser.add_option("--gap_run", dest="gap_run", default="100",
-        help=("The increase gap of iterations for the MCMC sampler "
-        "[default: %default]."))
+    group.add_option("--thetas", nargs=2, dest="thetas", default=[10,"None"], 
+        help=("Two arguments for hyperparameters in GP model: theta1,theta2. "
+        "default: [10 None], where theta2 covers 1/3 duration."))
+    group.add_option("--mcmc", type="int", nargs=3, dest="mcmc_run",
+        default=[500,20000,1000,100], help=("Four arguments for in MCMC "
+        "iterations: save_sample,max_run,min_run,gap_run. Required: "
+        "save_sample =< 3/4*mim_run. [default: 500 20000 1000 100]"))
+    # SAVE_NUM: the number of samples for saving out; 
+    # MAX_NUM,MIN_NUM: the maximum and the minmum samples;
+    # GAP_NUM: after min_num, the gap_run added till convergency.
+
+    parser.add_option_group(group)
+
+
+    ##### FOR DEVELOPMENT #####
+    # parser.add_option("--mate_mode", dest="mate_mode", default="pair",
+    #     help=("The mode for using paired-end reads: auto, pair, single "
+    #     "[default: %default]."))
+    # parser.add_option("--auto_min", dest="auto_min", default="200",
+    #     help=("The minimum pairs of read mates in auto mode. "
+    #     "[default: %default]."))
+
+    # parser.add_option("--print_detail", action="store_true", dest="print_detail", 
+    #     default=False, help="print the detail of the sampling.")
+    # parser.add_option("--no_twice", action="store_true", dest="no_twice", 
+    #     default=False, help="No quick estimate of the variance, but use fixed.")
 
     (options, args) = parser.parse_args()
     if len(sys.argv[1:]) == 0:
@@ -272,7 +115,7 @@ def main():
     else:
         sys.stdout.write("\rloading annotation file...")
         sys.stdout.flush()    
-        anno = load_annotation(options.anno_file, options.anno_source)
+        anno = load_annotation(options.anno_file, options.anno_type)
         sys.stdout.write("\rloading annotation file... Done.\n")
         sys.stdout.flush()
         genes = anno["genes"]
@@ -283,10 +126,7 @@ def main():
         print("Error: need --sam_list for reads indexed and aliged reads.")
         sys.exit(1)
     else:
-        _delimiter = ";"
-        if options.sam_list.count(";") == 0:
-            _delimiter = "---"
-        sam_list = options.sam_list.split(_delimiter)
+        sam_list = options.sam_list.split("---")
         global TOTAL_READ
         for i in range(len(sam_list)):
             sam_list[i] = sam_list[i].split(",")
@@ -304,63 +144,56 @@ def main():
                         _cnt += float(tmp[2])
             TOTAL_READ.append(_cnt)
 
-    no_twice = options.no_twice
-    add_premRNA = options.add_premRNA
-    print_detail = options.print_detail
+    no_twice = False
+    auto_min = 200
+    mate_mode = "pair"
+    print_detail = False
 
-    M = int(options.max_run)
-    gap = int(options.gap_run)
-    initial = int(options.min_run)
+    nproc = options.nproc
+    out_file = options.out_file
+    add_premRNA = options.add_premRNA
+    FLmean, FLstd = options.frag_leng
+    sample_num, M, gap, initial = options.mcmc_run
+    
     if options.time_seq is None: 
         X = np.arange(len(sam_list))
     else: 
         X = np.array(options.time_seq.split(","), "float")
-    theta1 = float(options.theta1)
-    if options.theta2 is None:
+
+    theta1, theta2 = options.thetas
+    theta1 = float(theta1)
+    if theta2 is None or ["None", "Auto", "auto"].count(theta2) == 1:
         theta2 = ((max(X) - min(X) + 0.1) / 3.0)**2
-    elif options.theta2 == 'learn':
+    elif theta2 == 'learn':
         theta2 = None
     else:
-        theta2 = max(0.00001, float(options.theta2))
+        theta2 = max(0.00001, float(theta2))
 
-    if options.fl_mean is None:
-    	FLmean = None
+    bias_mode, ref_file, bias_file = options.bias_args
+    if bias_mode == "unif":
+        ref_file = None
+        bias_file = None
+    elif ref_file is "None": 
+        ref_file = None
+        bias_file = None
+        bias_mode = "unif"
+        print("No reference sequence, so we change to uniform mode.")
+    elif bias_file is "None":
+        ref_file = None
+        bias_file = None
+        bias_mode = "unif"
+        print("No bias parameter file, so we change to uniform mode.")
     else:
-    	FLmean = float(options.fl_mean)
-    if options.fl_std is None:
-    	FLstd = None
-    else:
-    	FLstd = float(options.fl_std)
-    
-    nproc = int(options.nproc)
-    ref_file = options.ref_file
-    out_file = options.out_file
-    auto_min = int(options.auto_min)
-    mate_mode = options.mate_mode
-    bias_mode = options.bias_mode
-    sample_num = int(options.sample_num)
-    _delimiter = ";"
-    if options.sam_list.count(";") == 0:
-        _delimiter = "---"
-    bias_file = options.bias_file.split(_delimiter)
+        bias_file = bias_file.split("---")
 
-    if ref_file is None: 
-        if bias_mode != "unif":
-            bias_mode = "unif"
-            print("No reference sequence, so we change to uniform mode.")
-
-    if len(bias_file) == 0: 
-        if bias_mode != "unif":
-            bias_mode = "unif"
-            print("No bias parameter file, so we change to uniform mode.")
 
     global FID1, FID2
-    if not os.path.exists(os.path.dirname(out_file)):
-        try:
-            os.makedirs(os.path.dirname(out_file))
-        except OSError as exc: # Guard against race condition
-            if exc.errno != errno.EEXIST:
-                raise
+    # if not os.path.exists(os.path.dirname(out_file)):
+    #     try:
+    #         os.makedirs(os.path.dirname(out_file))
+    #     except OSError as exc: # Guard against race condition
+    #         if exc.errno != errno.EEXIST:
+    #             raise
     FID1 = open(out_file + ".dice", "w")
     headline = "tran_id\tgene_id\tlogLik\ttransLen"
     for i in range(len(X)):
@@ -376,25 +209,30 @@ def main():
 
     print("running diceseq for %d genes with %d cores..." %(TOTAL_GENE, nproc))
 
+    tran_ids = []
     if nproc <= 1:
         for g in genes:
             if add_premRNA: g.add_premRNA()
+            for t in g.trans: tran_ids.append(t.tranID)
             RV = get_psi(g, sam_list, ref_file,  bias_file, bias_mode, X, M, 
                  initial, gap, theta1, theta2, no_twice, sample_num, 
-                 print_detail, FLmean, FLstd, mate_mode, auto_min)
+                 print_detail, FLmean, FLstd, mate_mode, auto_min, TOTAL_READ)
             show_progress(RV)
     else:
         pool = multiprocessing.Pool(processes=nproc)
         for g in genes:
             if add_premRNA: g.add_premRNA()
+            for t in g.trans: tran_ids.append(t.tranID)
             pool.apply_async(get_psi, (g, sam_list, ref_file,  bias_file, 
                 bias_mode, X, M, initial, gap, theta1, theta2, no_twice, 
                 sample_num, print_detail, FLmean, FLstd, mate_mode, 
-                auto_min), callback=show_progress)
+                auto_min, TOTAL_READ), callback=show_progress)
         pool.close()
         pool.join()
     FID1.close()
     if FID2 is not None: FID2.close()
+    
+    sort_dice_file(out_file+".dice", tran_ids)
     print("")
 
 

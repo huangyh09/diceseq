@@ -55,10 +55,9 @@ def gamma_pdf(x, k, theta, log=True):
 def normal_pdf(x, mu, cov, log=True):
     """
     Calculate the probability density of Gaussian (Normal) distribution.
-
     Parameters
     ----------
-    x : float or 1-D array_like, (K, )
+    x : float, 1-D array_like (K, ), or 2-D array_like (K, N)
         The variable for calculating the probability density.
     mu : float or 1-D array_like, (K, )
         The mean of the Gaussian distribution.
@@ -66,25 +65,33 @@ def normal_pdf(x, mu, cov, log=True):
         The variance or the covariance matrix of the Gaussian distribution.
     log : bool
         If true, the return value is at log scale.
-
     Returns
     -------
     pdf : numpy float
-        The probability density of x.
+        The probability density of x. 
+        if N==1, return a float
+        elif N>1, return an array
     """
-    x = np.array(x) - np.array(mu)
+    if len(np.array(mu).shape) == 0:
+        x = np.array(x).reshape(-1,1)
+    elif len(np.array(x).shape) <= 1:
+        x = np.array(x).reshape(1, -1)
+    x = x - np.array(mu)
+    N, K = x.shape
     if len(np.array(cov).shape) < 2:
         cov = np.array(cov).reshape(-1,1)
-    if len(np.array(x).shape) < 1:
-        x = np.array(x).reshape(-1)
     cov_inv = np.linalg.inv(cov)
     cov_det = np.linalg.det(cov)
     if cov_det <= 0:
-        print("The det of covariance is not positive, please check!")
+        print("Warning: the det of covariance is not positive!")
         return None
-    pdf = (-0.5*np.log(2*np.pi*cov_det) - 0.5*np.dot(np.dot(x, cov_inv), x))
-    if log == False: pdf = np.exp(pdf)
-    return pdf
+    pdf_all = np.zeros(N)
+    pdf_part1 = -(K*np.log(2*np.pi) + np.log(cov_det)) / 2.0
+    for i in range(N):
+        pdf_all[i] = pdf_part1 - np.dot(np.dot(x[i,:], cov_inv), x[i,:]) / 2.0
+    if log == False: pdf_all = np.exp(pdf_all)
+    if N == 1: pdf_all = pdf_all[0]
+    return pdf_all
 
 def trun_normal_pdf(x, mu, sigma, a, b, log=True):
     """

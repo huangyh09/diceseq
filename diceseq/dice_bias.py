@@ -5,6 +5,8 @@ import time
 import numpy as np
 import multiprocessing
 from optparse import OptionParser
+
+import pyximport; pyximport.install()
 from .utils.tran_utils import TranUnits
 from .utils.gtf_utils import load_annotation
 from .utils.bias_utils import BiasFile, FastaFile
@@ -131,7 +133,7 @@ def main():
     parser.add_option("--nproc", "-p", dest="nproc", default="4",
         help="The number of subprocesses [default: %default].")
     parser.add_option("--num_max", dest="num_max", default=None,
-        help="The maximum number of genes for bias estimate [default: %default].")
+        help="The maximum number of genes for bias estimate [default: inf].")
     parser.add_option("--out_file", "-o", dest="out_file", default="out.bias",
         help="The output file in BIAS format.")
 
@@ -176,7 +178,8 @@ def main():
         num_max = min(int(options.num_max), TOTAL_GENE)
 
     print("isoform length: 0--%d--%d--%d--%d--inf" %tuple(BF.percentile[1:,0]))
-    print("running dice-bias for %d one-isoform genes with %d cores..." %(TOTAL_GENE, nproc))
+    print("running dice-bias for %d one-isoform genes with %d cores..." 
+        %(TOTAL_GENE, nproc))
 
     #part 2. estimate
     cnt = 0
@@ -199,7 +202,8 @@ def main():
         pool.join()
 
     BIAS_FILE.save_file(out_file)
-    print("\n%d reads from %d genes were used in bias estimate." %(TOTAL_READ, USED_GENE))
+    print("\n%d reads from %d genes were used in bias estimate." 
+        %(TOTAL_READ, USED_GENE))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 gene_id	gene_name	biotype	gene_length	count	FPKM
+YOL120C	RPL18A	protein_coding	1008	64	6.68e+04
 YMR116C	ASC1	protein_coding	1233	100	8.53e+04
 YKL006W	RPL14A	protein_coding	815	43	5.55e+04
 YNL112W	DBP2	protein_coding	2643	179	7.12e+04
 YDR381W	YRA1	protein_coding	1447	80	5.81e+04
-YOL120C	RPL18A	protein_coding	1008	64	6.68e+04

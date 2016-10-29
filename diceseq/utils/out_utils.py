@@ -2,6 +2,7 @@
 # with which you could easily access to the results,
 # also visualize the data.
 
+import sys
 import gzip
 import numpy as np
 import pylab as pl
@@ -37,7 +38,7 @@ class SampleFile:
         """visualization function for Gaussian process"""
         if self.gene.count(gquery) == 0:
             print("No %s in the sample file." %gquery)
-            exit(1)
+            sys.exit(1)
         else: qidx = self.gene.index(gquery)
         _tran = self.tran[qidx]
         _sample = self.sample[qidx]
@@ -96,6 +97,44 @@ class DiceFile:
         self.IsoCI95s[:,:,0] = dice_data[:,idx*4+6].astype("float")
         self.IsoCI95s[:,:,1] = dice_data[:,idx*4+7].astype("float")
 
+def id_mapping(IDs1, IDs2):
+    """
+    Mapping IDs2 to IDs1, both of which should only contain unique ids.
+    
+    Parameters
+    ----------
+    IDs1 : array_like or list
+        ids for reference.
+    IDs2 : array_like or list
+        ids waiting to map.
+        
+    Returns
+    -------
+    RV_idx : array_like, the same length of IDs1
+        The index for IDs2 mapped to IDs1. If an id in IDs1 does not exist 
+        in IDs2, then return a None for that id.
+    """
+    idx1 = np.argsort(IDs1)
+    idx2 = np.argsort(IDs2)
+    RV_idx1, RV_idx2 = [], []
+    
+    i, j = 0, 0
+    while i < len(idx1):
+        if j == len(idx2) or IDs1[idx1[i]] < IDs2[idx2[j]]:
+            RV_idx1.append(idx1[i])
+            RV_idx2.append(None)
+            i += 1
+        elif IDs1[idx1[i]] == IDs2[idx2[j]]:
+            RV_idx1.append(idx1[i])
+            RV_idx2.append(idx2[j])
+            i += 1
+            j += 1
+        elif IDs1[idx1[i]] > IDs2[idx2[j]]:
+            j += 1
+            
+    origin_idx = np.argsort(RV_idx1)
+    RV_idx = np.array(RV_idx2)[origin_idx]
+    return RV_idx
 
 def get_CI(data, percent=0.95):
     """calculate the confidence intervals

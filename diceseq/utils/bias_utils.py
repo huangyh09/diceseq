@@ -101,8 +101,10 @@ class BiasFile:
             self.flen_std  = np.sqrt(self.flen_sum2*self.read_num - self.flen_sum1**2) / (self.read_num+0.0)
 
     def updata_prob(self):
-        self.pos5_prob = self.pos5_bias[a,b] / self.pos5_unif[a,b]
-        self.pos3_prob = self.pos3_bias[a,b] / self.pos3_unif[a,b]
+        # self.pos5_prob = self.pos5_bias[a,b] / self.pos5_unif[a,b]
+        # self.pos3_prob = self.pos3_bias[a,b] / self.pos3_unif[a,b]
+        self.pos5_prob = self.pos5_bias / self.pos5_unif
+        self.pos3_prob = self.pos3_bias / self.pos3_unif
         for i in range(len(self.chain_len)):
             self.seq5_prob[str(i)] = self.seq5_bias[str(i)] / self.seq5_unif[str(i)]
             self.seq3_prob[str(i)] = self.seq3_bias[str(i)] / self.seq3_unif[str(i)]
@@ -127,7 +129,7 @@ class BiasFile:
         for i in range(21):
             self.base_chain[str(i)] = base_comb[self.chain_len[i]-1]
 
-    def get_both_bias(seq, loc, ulen, end_num=5):
+    def get_both_bias(self, seq, loc, ulen, end_num=5):
         """get the bias from the bias parameters"""
         prob = (self.get_seq_bias(seq, end_num) * 
                 self.get_pos_bias(loc, ulen, end_num))

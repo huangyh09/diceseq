@@ -4,7 +4,7 @@ See: http://diceseq.sourceforge.net
 """
 
 # Always prefer setuptools over distutils
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 # To use a consistent encoding
 from codecs import open
 from os import path
@@ -17,6 +17,10 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
     
 reqs = ['numpy', 'pysam', 'matplotlib']
+
+# from distutils.core import setup
+# from Cython.Build import cythonize
+# extensions = [Extension("*", ["diceseq/*/*.pyx"])]
 
 setup(
     name='diceseq',
@@ -50,6 +54,7 @@ setup(
     entry_points={
           'console_scripts': [
               'diceseq = diceseq.diceseq:main',
+              # 'dice-diff = diceseq.dice_diff:main',
               'dice-bias = diceseq.dice_bias:main',
               'dice-count = diceseq.dice_count:main',
               ],
@@ -62,7 +67,9 @@ setup(
     
     install_requires=reqs,
 
-    py_modules = ['diceseq']
+    py_modules = ['diceseq'],
+
+    # ext_modules = cythonize(extensions)
 
     # buid the distribution: python setup.py sdist
     # upload to pypi: twine upload dist/...
