@@ -81,10 +81,10 @@ def main():
     group.add_option("--thetas", nargs=2, dest="thetas", default=[10,"None"], 
         help=("Two arguments for hyperparameters in GP model: theta1,theta2. "
         "default: [10 None], where theta2 covers 1/3 duration."))
-    group.add_option("--mcmc", type="int", nargs=3, dest="mcmc_run",
-        default=[500,20000,1000,100], help=("Four arguments for in MCMC "
+    group.add_option("--mcmc", type="int", nargs=4, dest="mcmc_run",
+        default=[0,20000,1000,100], help=("Four arguments for in MCMC "
         "iterations: save_sample,max_run,min_run,gap_run. Required: "
-        "save_sample =< 3/4*mim_run. [default: 500 20000 1000 100]"))
+        "save_sample =< 3/4*mim_run. [default: 0 20000 1000 100]"))
     # SAVE_NUM: the number of samples for saving out; 
     # MAX_NUM,MIN_NUM: the maximum and the minmum samples;
     # GAP_NUM: after min_num, the gap_run added till convergency.

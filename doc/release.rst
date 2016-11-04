@@ -2,6 +2,11 @@
 Release notes
 =============
 
+Release 0.2.3 (04/11/2016)
+==========================
+* fix some bugs
+* change default save_sample into 0
+
 
 Release 0.2.2 (29/10/2016)
 ==========================
@@ -11,6 +16,7 @@ Release 0.2.2 (29/10/2016)
 * change default theta1 as 10
 * change default save_sample (original sample_num) into 500
 * keep transcript in diceseq results in the same order as in gtf file
+* To get the same default as v0.2.1, please set ``--mcmc 0 20000 1000 100 --thetas 3 None``
 
 
 Release 0.2.1 (16/06/2016)

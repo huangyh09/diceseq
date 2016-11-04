@@ -2,8 +2,8 @@ DICEseq Homepage
 ================
 
 :Author: Yuanhua Huang
-:Version: 0.2.2
-:Last viewed: Oct 29, 2016
+:Version: 0.2.3
+:Last viewed: Nov 04, 2016
 
 About DICEseq
 -------------
