@@ -9,7 +9,8 @@ import sys
 import numpy as np
 
 class Transcript:
-    def __init__(self,chrom,strand,start,stop,tran_id,tran_name="*",biotype="*"):
+    def __init__(self, chrom, strand, start, stop, tran_id, tran_name="*", 
+        biotype="*"):
         """a general purpose transcript object with the basic information.
         """
         self.chrom  = chrom
@@ -25,7 +26,7 @@ class Transcript:
         self.tranName = tran_name
         
 
-    def add_exon(self,chrom,strand,start,stop):
+    def add_exon(self, chrom, strand, start, stop):
         if strand != self.strand or chrom != self.chrom:
             print("The exon has different chrom or strand to the transcript.")
             return
@@ -46,7 +47,10 @@ class Transcript:
             self.seglen = self.seglen[::-1]
 
 class Gene:
-    def __init__(self,chrom,strand,start,stop,gene_id,gene_name="*",biotype="*"):
+    def __init__(self, chrom, strand, start, stop, gene_id, gene_name="*",
+        biotype="*"):
+        """
+        """
         self.chrom  = chrom
         self.strand = strand
         self.start  = int(start)
@@ -87,6 +91,165 @@ class Gene:
         for t in self.trans:
             self.start = min(self.start, np.min(t.exons))
             self.stop  = max(self.stop,  np.max(t.exons))
+
+
+def parse_attribute(attStr, default="*", 
+    ID_tags="ID,gene_id,transcript_id,mRNA_id",
+    Name_tags="Name,gene_name,transcript_name,mRNA_name",
+    Type_tags="Type,gene_type,gene_biotype,biotype",
+    Parent_tags="Parent"):
+    """
+    Parse attributes in GTF or GFF3
+
+    Parameters
+    ----------
+    attStr: string
+        String containing attributes either in GTF or GFF3 format.
+    default: string
+        default value for ID, Name, Type and Parent.
+    ID_tags: string
+        Multiple tags for ID. Use comma for delimit. 
+        If multiple tags found, use the last one.
+    Name_tags: string
+        Multiple tags for Name. Use comma for delimit. 
+        If multiple tags found, use the last one.
+    Type_tags: string
+        Multiple tags for Type. Use comma for delimit. 
+        If multiple tags found, use the last one.
+    Parent_tags: string
+        Multiple tags for Parent. Use comma for delimit. 
+        If multiple tags found, use the last one.
+
+    Returns
+    -------
+    RV: library of string
+        Library of all tags, always including ID, Name, Type, Parenet.
+    """
+    RV = {}
+    RV["ID"] = default
+    RV["Name"] = default
+    RV["Type"] = default
+    RV["Parent"] = default
+    ID_tags = ID_tags.split(",")
+    Name_tags = Name_tags.split(",")
+    Type_tags = Type_tags.split(",")
+    Parent_tags = Parent_tags.split(",")
+
+    attList = attStr.rstrip().split(";")
+    for att in attList:
+        while len(att) > 0 and att[0] == " ": 
+            att = att[1:]
+        if len(att) == 0: 
+            continue
+        if att.find("=") > -1:
+            _att = att.split("=") #GFF3
+        else:
+            _att = att.split(" ") #GTF
+
+        # print _att
+
+        if len(_att) < 2:
+            print("Can't pase this attribute: %s" %att)
+            continue
+
+        if _att[1][0] == '"':
+            _att[1] = _att[1].split('"')[1]
+
+        if ID_tags.count(_att[0]) == 1:
+            RV["ID"] = _att[1]
+        elif Name_tags.count(_att[0]) == 1:
+            RV["Name"] = _att[1]
+        elif Type_tags.count(_att[0]) == 1:
+            RV["Type"] = _att[1]
+        elif Parent_tags.count(_att[0]) == 1:
+            RV["Parent"] = _att[1]
+        else: RV[_att[0]] = _att[1]
+
+    return RV
+
+def loadgene(anno_file, comments="#,>", geneTag="gene", 
+        tranTag="transcript,mRNA", exonTag="exon"):
+    """
+    Load genes from gtf or gff3 file.
+
+    Parameters
+    ----------
+    anno_file: str
+        path for the annotation file in GTF or GFF3 format.
+    comments: string
+        Multiple comments. Use comma for delimit. 
+    geneTag: string
+        Multiple tags for gene. Use comma for delimit. 
+    tranTag: string
+        Multiple tags for transcript. Use comma for delimit. 
+    exonTag: string
+        Multiple tags for exon. Use comma for delimit. 
+
+    Return
+    ------
+    genes: list of ``pyseqlib.Gene``
+        a list of loaded genes
+    """
+
+    #TODO: load gzip file
+    fid = open(anno_file, "r")
+    anno_in = fid.readlines()
+    fid.close()
+
+    geneTag = geneTag.split(",")
+    tranTag = tranTag.split(",")
+    exonTag = exonTag.split(",")
+    comments = comments.split(",")
+    
+    genes = []
+    _gene = None
+    for _line in anno_in:
+        if comments.count(_line[0]):
+            continue
+            
+        aLine = _line.split("\t")
+        if len(aLine) < 8:
+            continue
+        elif geneTag.count(aLine[2]) == 1:
+            if _gene is not None: 
+                genes.append(_gene)
+
+            RVatt = parse_attribute(aLine[8], ID_tags="ID,gene_id",
+                Name_tags="Name,gene_name")
+            _gene = Gene(aLine[0], aLine[6], aLine[3], aLine[4],
+                RVatt["ID"], RVatt["Name"], RVatt["Type"])
+
+        elif tranTag.count(aLine[2]) == 1:
+            RVatt = parse_attribute(aLine[8],ID_tags="ID,transcript_id,mRNA_id",
+                Name_tags="Name,transcript_name,mRNA_name")
+            _tran  = Transcript(aLine[0], aLine[6], aLine[3], aLine[4],
+                RVatt["ID"], RVatt["Name"], RVatt["Type"])
+
+            if _gene is not None:
+                _gene.add_transcipt(_tran)
+            else:
+                print("Gene is not ready before transcript.")
+
+        elif exonTag.count(aLine[2]) == 1:
+            if aLine[0] != _gene.trans[-1].chrom:
+                print("Exon from a different chrom of transcript.")
+                continue
+            if aLine[6] != _gene.trans[-1].strand:
+                print("Exon from a different strand of transcript.")
+                continue
+            if _gene is not None and len(_gene.trans) > 0:
+                _gene.trans[-1].add_exon(aLine[0], aLine[6], aLine[3], aLine[4])
+                # _gene.gene_ends_update()
+            else:
+                print("Gene or transcript is not ready before exon.")
+
+    if _gene is not None: 
+        genes.append(_gene)
+
+    return genes
+
+
+### Old version ###
 
 def ensembl_gtf(anno_in):
     genes = []
@@ -144,115 +307,6 @@ def ensembl_gtf(anno_in):
             if a_line[6] != _gene.trans[-1].strand:
                 print("The exon is on the different strand from the transcript.")
                 continue
-            if _gene is not None and len(_gene.trans) > 0:
-                _gene.trans[-1].add_exon(a_line[0],a_line[6],a_line[3],a_line[4])
-                # _gene.gene_ends_update()
-            else:
-                print("Gene or transcript is not ready before exon.")
-
-    if _gene is not None: genes.append(_gene)
-    return genes
-
-
-def sander_gtf(anno_in):
-    genes = []
-    _gene = None
-    for _line in anno_in:
-        # comment lines
-        if _line[0] == "#" or _line[0] == ">" : continue
-            
-        a_line = _line.split("\t")
-        if len(a_line) < 9: continue
-        elif a_line[2] == "exon":
-            _gene_id = "#"
-            idx  = a_line[8].find("gene_id")
-            if idx > -1:
-                _gene_id = a_line[8][idx:].split('"')[1]
-            if len(genes) > 0 and _gene_id == genes[-1].trans[-1].tranID :
-                genes[-1].trans[-1].add_exon(a_line[0], a_line[6],
-                                             a_line[3], a_line[4])
-                genes[-1].gene_ends_update()
-            else:
-                _biotype = a_line[1]
-                _gene_name, _gene_id = "*", "*"
-                idx = a_line[8].find("gene_name")
-                if idx > -1:
-                    _gene_name = a_line[8][idx:].split('"')[1].split("\n")[0]
-                idx  = a_line[8].find("gene_id")
-                if idx > -1:
-                    _gene_id = a_line[8][idx:].split('"')[1].split("\n")[0]
-                _gene = Gene(a_line[0], a_line[6], a_line[3], a_line[4],
-                             _gene_id, _gene_name, _biotype)
-
-                _tran_name, _tran_id = "*", "*"
-                idx = a_line[8].find("transcript_name")
-                if idx > -1:
-                    _tran_name = a_line[8][idx:].split('"')[1].split("\n")[0]
-                idx = a_line[8].find("transcript_id")
-                if idx > -1:
-                    _tran_id = a_line[8][idx:].split('"')[1].split("\n")[0]
-                idx = a_line[8].find("gene_biotype")
-                _tran = Transcript(a_line[0], a_line[6], a_line[3], a_line[4],
-                                   _tran_id, _tran_name, _biotype)
-
-                _tran.add_exon(a_line[0], a_line[6], a_line[3], a_line[4])
-
-                _gene.add_transcipt(_tran)
-                genes.append(_gene)
-    return genes
-
-
-def sgd_gtf(anno_in):
-    genes = []
-    _gene = None
-    cnt =+ 0
-    for _line in anno_in:
-        # comment lines
-        if _line[0] == "#":continue
-        elif _line[0] == ">" : break
-            
-        a_line = _line.split("\t")
-        if len(a_line) < 9: continue
-        elif a_line[2].find("gene") > -1:
-            if _gene is not None:
-                genes.append(_gene)
-                _gene = None
-            
-            if a_line[2].find("gene") == 0:
-                _biotype = "protein_coding"
-            else:
-                _biotype = a_line[2].split("_")[0]
-            _gene_name, _gene_id = "*", "*"
-            idx = a_line[8].find("Name")
-            if idx > -1:
-                _gene_name = a_line[8][idx:].split(";")[0].split("=")[1].split("\n")[0]
-            idx  = a_line[8].find("ID")
-            if idx > -1:
-                _gene_id = a_line[8][idx:].split(";")[0].split("=")[1].split("\n")[0]
-            _gene = Gene(a_line[0], a_line[6], a_line[3], a_line[4],
-                         _gene_id, _gene_name, _biotype)
-
-        # elif a_line[2] == "mRNA":
-        #     _tran_name, _tran_id, _biotype = "*", "*", "*"
-        #     idx = a_line[8].find("Name")
-        #     if idx > -1:
-        #         _tran_name = a_line[8][idx:].split(";")[0].split("=")[1]
-        #     idx = a_line[8].find("ID")
-        #     if idx > -1:
-        #         _tran_id = a_line[8][idx:].split(";")[0].split("=")[1]
-            # _tran = Transcript(a_line[0], a_line[6], a_line[3], a_line[4],
-            #                    _tran_id, _tran_name, _biotype)
-
-            _tran_name, _tran_id = _gene_name, _gene_id
-            _tran = Transcript(a_line[0], a_line[6], a_line[3], a_line[4],
-                               _tran_id, _tran_name, _biotype)
-
-            if _gene is not None:
-                _gene.add_transcipt(_tran)
-            else:
-                print("Gene is not ready before transcript.")
-
-        elif a_line[2] == "CDS" or a_line[2] == "noncoding_exon" :
             if _gene is not None and len(_gene.trans) > 0:
                 _gene.trans[-1].add_exon(a_line[0],a_line[6],a_line[3],a_line[4])
                 # _gene.gene_ends_update()

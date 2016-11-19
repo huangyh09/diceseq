@@ -37,4 +37,4 @@ References
 ----------
 
 Yuanhua Huang and Guido Sanguinetti. `Statistical modeling of isoform splicing dynamics from RNA-seq time series data 
-<http://bioinformatics.oxfordjournals.org/content/early/2016/07/08/bioinformatics.btw364>`_. \ **Bioinformatics**\ , 2016, btw364.
+<http://bioinformatics.oxfordjournals.org/content/32/19/2965.abstract>`_. \ **Bioinformatics**\, 2016, 32(19): 2965-2972.

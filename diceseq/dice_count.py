@@ -16,7 +16,7 @@ from optparse import OptionParser, OptionGroup
 
 import pyximport; pyximport.install()
 from .utils.reads_utils import ReadSet
-from .utils.gtf_utils import load_annotation
+from .utils.gtf_utils import loadgene #load_annotation
 from .utils.sam_utils import load_samfile, fetch_reads
 
 FID = None 
@@ -32,13 +32,13 @@ def show_progress(RV=None):
         FID.writelines(RV)
     
     PROCESSED += 1
-    bar_len = 30
+    bar_len = 20
     run_time = time.time() - START_TIME
     percents = 100.0 * PROCESSED / TOTAL_GENE
     filled_len = int(round(bar_len * percents / 100))
     bar = '=' * filled_len + '-' * (bar_len - filled_len)
     
-    sys.stdout.write('\r[%s] %.2f%% processed in %.1f sec.' 
+    sys.stdout.write('\r[dice-count] [%s] %.1f%% done in %.1f sec.' 
         % (bar, percents, run_time))
     sys.stdout.flush()
     return RV
@@ -78,8 +78,6 @@ def get_count(gene, sam_file, total_reads, rm_duplicate, inner_only, mapq_min,
     return a_line
 
 def main():
-    print("Welcome to dice-count!")
-
     #part 0. parse command line options
     parser = OptionParser()
     parser.add_option("--anno_file", "-a", dest="anno_file", default=None,
@@ -92,9 +90,9 @@ def main():
     group = OptionGroup(parser, "Optional arguments")
     group.add_option("--nproc", "-p", type="int", dest="nproc", default="4",
         help="Number of subprocesses [default: %default]")
-    group.add_option("--anno_type", dest="anno_type", default="GTF",
-        help="Type of annotation file: GTF, GFF3, UCSC_table "
-        "[default: %default]")
+    # group.add_option("--anno_type", dest="anno_type", default="GTF",
+    #     help="Type of annotation file: GTF, GFF3, UCSC_table "
+    #     "[default: %default]")
 
     group.add_option("--mapq_min", dest="mapq_min", default="10", 
         help="Minimum mapq for reads. [default: %default]")
@@ -119,20 +117,22 @@ def main():
 
     (options, args) = parser.parse_args()
     if len(sys.argv[1:]) == 0:
+        print("Welcome to dice-count!\n")
         print("use -h or --help for help on argument.")
         sys.exit(1)
     if options.anno_file == None:
-        print("Error: need --anno_file for annotation.")
+        print("[dice-count] Error: need --anno_file for annotation.")
         sys.exit(1)
     else:
-        sys.stdout.write("\rloading annotation file...")
+        sys.stdout.write("\r[dice-count] loading annotation file...")
         sys.stdout.flush()    
-        anno = load_annotation(options.anno_file, options.anno_type)
-        sys.stdout.write("\rloading annotation file... Done.\n")
+        # anno = load_annotation(options.anno_file, options.anno_type)
+        # genes = anno["genes"]
+        genes = loadgene(options.anno_file)
+        sys.stdout.write("\r[dice-count] loading annotation file... Done.\n")
         sys.stdout.flush()
-        genes = anno["genes"]
     if options.sam_file == None:
-        print("Error: need --sam_file for reads indexed and aliged reads.")
+        print("[dice-count] Error: need --sam_file for aliged & indexed reads.")
         sys.exit(1)
     else:
         sam_file = options.sam_file
@@ -176,7 +176,7 @@ def main():
         head_line = "gene_id\tgene_name\tbiotype\tgene_length\tcount\tFPKM"
     FID.writelines(head_line + "\n")
 
-    print("running dice-count for %d genes with %d cores..." %(TOTAL_GENE, nproc))
+    print("[dice-count] running dice-count for %d genes with %d cores..." %(TOTAL_GENE, nproc))
 
     if nproc <= 1:
         for g in genes:

@@ -4,11 +4,11 @@ import sys
 import time
 import numpy as np
 import multiprocessing
-from optparse import OptionParser
+from optparse import OptionParser, OptionGroup
 
 import pyximport; pyximport.install()
 from .utils.tran_utils import TranUnits
-from .utils.gtf_utils import load_annotation
+from .utils.gtf_utils import loadgene #load_annotation
 from .utils.bias_utils import BiasFile, FastaFile
 from .utils.sam_utils import load_samfile, fetch_reads
 
@@ -23,13 +23,13 @@ def show_progress(RV):
     global PROCESSED, BIAS_FILE, TOTAL_READ, USED_GENE
 
     PROCESSED += 1
-    bar_len = 30
+    bar_len = 20
     run_time = time.time() - START_TIME
     percents = 100.0 * PROCESSED / TOTAL_GENE
     filled_len = int(round(bar_len * percents / 100))
     bar = '=' * filled_len + '-' * (bar_len - filled_len)
     
-    sys.stdout.write('\r[%s] %.2f%% processed in %.1f sec.' 
+    sys.stdout.write('\r[dice-bias] [%s] %.1f%% done in %.1f sec.' 
         % (bar, percents, run_time))
     sys.stdout.flush()
 
@@ -116,50 +116,58 @@ def get_bias(BF, g, ref_seq, samFile, threshold=0.01):
 
 
 def main():
-    print("Welcome to dice-bias!")
-    import warnings
-    warnings.filterwarnings('error')
+    # import warnings
+    # warnings.filterwarnings('error')
 
     #part 0. parse command line options
     parser = OptionParser()
     parser.add_option("--anno_file", "-a", dest="anno_file", default=None,
-        help="The annotation file in gtf format.")
-    parser.add_option("--anno_source", dest="anno_source", default="Ensembl",
-        help="The annotation source of the gtf file [default: %default]")
+        help="Annotation file with single-transcript genes")
     parser.add_option("--sam_file", "-s", dest="sam_file", default=None,
-        help="The sourted & indexed bam/sam file.")
-    parser.add_option("--refseq_file", "-r", dest="refseq_file", default=None,
-        help="The fasta file of genome reference sequences.")
-    parser.add_option("--nproc", "-p", dest="nproc", default="4",
-        help="The number of subprocesses [default: %default].")
-    parser.add_option("--num_max", dest="num_max", default=None,
+        help="Sorted and indexed bam/sam files")
+    parser.add_option("--ref_file", "-r", dest="ref_file", default=None,
+        help="Genome reference sequences in FASTA format")
+    parser.add_option("--out_file", "-o", dest="out_file",  
+        default="output.bias", help="Output file in BIAS format")
+
+    group = OptionGroup(parser, "Optional arguments")
+    group.add_option("--nproc", "-p", type="int", dest="nproc", default="4",
+        help="Number of subprocesses [default: %default]")
+    # group.add_option("--anno_type", dest="anno_type", default="GTF",
+    #     help="Type of annotation file: GTF, GFF3, UCSC_table "
+    #     "[default: %default]")
+    group.add_option("--num_max", dest="num_max", default=None,
         help="The maximum number of genes for bias estimate [default: inf].")
-    parser.add_option("--out_file", "-o", dest="out_file", default="out.bias",
-        help="The output file in BIAS format.")
+    group.add_option("--percentile", type="int", nargs=4, dest="percentile",
+        default=[500,800,1300,2200], help=("N-1 arguments for N percentiles "
+        "of transcript length. [default: 500 800 1300 2200]"))
+    parser.add_option_group(group)
 
     (options, args) = parser.parse_args()
     if len(sys.argv[1:]) == 0:
+        print("Welcome to dice-bias!\n")
         print("use -h or --help for help on argument.")
         sys.exit(1)
     if options.anno_file == None:
-        print("Error: need --anno_file for annotation.")
+        print("[dice-bias] Error: need --anno_file for annotation.")
         sys.exit(1)
     else:
-        sys.stdout.write("\rloading annotation file...")
+        sys.stdout.write("\r[dice-bias] loading annotation file...")
         sys.stdout.flush()    
-        anno = load_annotation(options.anno_file, options.anno_source)
-        sys.stdout.write("\rloading annotation file... Done.\n")
+        # anno = load_annotation(options.anno_file, options.anno_type)
+        # genes = anno["genes"]
+        genes = loadgene(options.anno_file)
+        sys.stdout.write("\r[dice-bias] loading annotation file... Done.\n")
         sys.stdout.flush()
-        genes = anno["genes"]
     if options.sam_file == None:
-        print("Error: need --sam_file for reads indexed and aliged reads.")
+        print("[dice-bias] Error: need --sam_file for aliged & indexed reads.")
         sys.exit(1)
     else:
         sam_file = options.sam_file
     
     nproc = int(options.nproc)
     out_file = options.out_file
-    refseq_file = options.refseq_file
+    ref_file = options.ref_file
 
     #part 1. transcript length
     global TOTAL_GENE
@@ -177,8 +185,9 @@ def main():
     else:
         num_max = min(int(options.num_max), TOTAL_GENE)
 
-    print("isoform length: 0--%d--%d--%d--%d--inf" %tuple(BF.percentile[1:,0]))
-    print("running dice-bias for %d one-isoform genes with %d cores..." 
+    print("[dice-bias] isoform length: 0--%d--%d--%d--%d--inf" 
+        %tuple(BF.percentile[1:,0]))
+    print("[dice-bias] running dice-bias for %d one-isoform genes with %d cores..." 
         %(TOTAL_GENE, nproc))
 
     #part 2. estimate
@@ -188,7 +197,7 @@ def main():
             if g.tranNum > 1: continue
             cnt += 1
             if cnt >= num_max: break
-            RV = get_bias(BF, g, refseq_file, sam_file, 0.01)
+            RV = get_bias(BF, g, ref_file, sam_file, 0.01)
             show_progress(RV)
     else:
         pool = multiprocessing.Pool(processes=nproc)
@@ -196,13 +205,13 @@ def main():
             if g.tranNum > 1: continue
             cnt += 1
             if cnt >= num_max: break
-            pool.apply_async(get_bias, (BF, g, refseq_file, sam_file, 0.01), 
+            pool.apply_async(get_bias, (BF, g, ref_file, sam_file, 0.01), 
                 callback=show_progress)
         pool.close()
         pool.join()
 
     BIAS_FILE.save_file(out_file)
-    print("\n%d reads from %d genes were used in bias estimate." 
+    print("[dice-bias] \n%d reads from %d genes were used in bias estimate." 
         %(TOTAL_READ, USED_GENE))
 
 

@@ -11,7 +11,7 @@ import multiprocessing
 from optparse import OptionParser, OptionGroup
 
 import pyximport; pyximport.install()
-from .utils.gtf_utils import load_annotation
+from .utils.gtf_utils import loadgene
 from .utils.run_utils import get_psi, sort_dice_file
 
 FID1 = None 
@@ -30,13 +30,13 @@ def show_progress(RV=None):
         if FID2 is not None: FID2.writelines(RV["sample_line"])
     
     PROCESSED += 1
-    bar_len = 30
+    bar_len = 20
     run_time = time.time() - START_TIME
     percents = 100.0 * PROCESSED / TOTAL_GENE
     filled_len = int(round(bar_len * percents / 100))
     bar = '=' * filled_len + '-' * (bar_len - filled_len)
     
-    sys.stdout.write('\r[%s] %.2f%% processed in %.1f sec.' 
+    sys.stdout.write('\r[DICEseq] [%s] %.1f%% done in %.1f sec.' 
         % (bar, percents, run_time))
     sys.stdout.flush()
     return RV
@@ -45,12 +45,11 @@ def show_progress(RV=None):
 def main():
     # import warnings
     # warnings.filterwarnings('error')
-    print("Welcome to diceseq!")
 
     # parse command line options
     parser = OptionParser()
     parser.add_option("--anno_file", "-a", dest="anno_file", default=None,
-        help="Annotation file for genes and transcripts")
+        help="Annotation file for genes and transcripts in GTF or GFF3")
     parser.add_option("--sam_list", "-s", dest="sam_list", default=None,
         help=("Sorted and indexed bam/sam files, use ',' for replicates "
         "and '---' for time points, e.g., T1_rep1.bam,T1_rep2.bam---T2.bam"))
@@ -61,10 +60,7 @@ def main():
 
     group = OptionGroup(parser, "Optional arguments")
     group.add_option("--nproc", "-p", type="int", dest="nproc", default="4",
-        help="Number of subprocesses [default: %default]")
-    group.add_option("--anno_type", dest="anno_type", default="GTF",
-        help="Type of annotation file: GTF, GFF3, UCSC_table "
-        "[default: %default]")
+        help="Number of subprocesses [default: %default]")    
     group.add_option("--add_premRNA", action="store_true", dest="add_premRNA", 
         default=False, help="Add the pre-mRNA as a transcript")
     
@@ -89,6 +85,10 @@ def main():
     # MAX_NUM,MIN_NUM: the maximum and the minmum samples;
     # GAP_NUM: after min_num, the gap_run added till convergency.
 
+    # group.add_option("--anno_type", dest="anno_type", default="GTF",
+    #     help="Type of annotation file: GTF, GFF3, UCSC_table "
+    #     "[default: %default]")
+
     parser.add_option_group(group)
 
 
@@ -107,23 +107,26 @@ def main():
 
     (options, args) = parser.parse_args()
     if len(sys.argv[1:]) == 0:
+        print("Welcome to diceseq!\n")
         print("use -h or --help for help on argument.")
         sys.exit(1)
     if options.anno_file == None:
-        print("Error: need --anno_file for annotation.")
+        print("[DICEseq] Error: need --anno_file for annotation.")
         sys.exit(1)
     else:
-        sys.stdout.write("\rloading annotation file...")
+        sys.stdout.write("\r[DICEseq] loading annotation file...")
         sys.stdout.flush()    
-        anno = load_annotation(options.anno_file, options.anno_type)
-        sys.stdout.write("\rloading annotation file... Done.\n")
+        # anno = load_annotation(options.anno_file, options.anno_type)
+        # genes = anno["genes"]
+        genes = loadgene(options.anno_file)
+        sys.stdout.write("\r[DICEseq] loading annotation file... Done.\n")
         sys.stdout.flush()
-        genes = anno["genes"]
+        
         global TOTAL_GENE
         TOTAL_GENE = len(genes)
 
     if options.sam_list == None:
-        print("Error: need --sam_list for reads indexed and aliged reads.")
+        print("[DICEseq] Error: need --sam_list for aliged & indexed reads.")
         sys.exit(1)
     else:
         sam_list = options.sam_list.split("---")
@@ -153,7 +156,7 @@ def main():
     out_file = options.out_file
     add_premRNA = options.add_premRNA
     FLmean, FLstd = options.frag_leng
-    sample_num, M, gap, initial = options.mcmc_run
+    sample_num, Mmax, Mmin, Mgap = options.mcmc_run
     
     if options.time_seq is None: 
         X = np.arange(len(sam_list))
@@ -177,12 +180,12 @@ def main():
         ref_file = None
         bias_file = None
         bias_mode = "unif"
-        print("No reference sequence, so we change to uniform mode.")
+        print("[DICEseq] No reference sequence, change to uniform mode.")
     elif bias_file is "None":
         ref_file = None
         bias_file = None
         bias_mode = "unif"
-        print("No bias parameter file, so we change to uniform mode.")
+        print("[DICEseq] No bias parameter file, change to uniform mode.")
     else:
         bias_file = bias_file.split("---")
 
@@ -207,16 +210,17 @@ def main():
         FID2.writelines("# @gene|transcripts|theta2\n")
         FID2.writelines("# y_c1t1,y_c2t1;y_c1t2,y_c2t2;...\n")
 
-    print("running diceseq for %d genes with %d cores..." %(TOTAL_GENE, nproc))
+    print("[DICEseq] running diceseq for %d genes with %d cores..." %(
+        TOTAL_GENE, nproc))
 
     tran_ids = []
     if nproc <= 1:
         for g in genes:
             if add_premRNA: g.add_premRNA()
             for t in g.trans: tran_ids.append(t.tranID)
-            RV = get_psi(g, sam_list, ref_file,  bias_file, bias_mode, X, M, 
-                 initial, gap, theta1, theta2, no_twice, sample_num, 
-                 print_detail, FLmean, FLstd, mate_mode, auto_min, TOTAL_READ)
+            RV = get_psi(g, sam_list, ref_file,  bias_file, bias_mode, X, Mmax, 
+                 Mmin, Mgap, theta1, theta2, no_twice, sample_num, print_detail,
+                 FLmean, FLstd, mate_mode, auto_min, TOTAL_READ)
             show_progress(RV)
     else:
         pool = multiprocessing.Pool(processes=nproc)
@@ -224,7 +228,7 @@ def main():
             if add_premRNA: g.add_premRNA()
             for t in g.trans: tran_ids.append(t.tranID)
             pool.apply_async(get_psi, (g, sam_list, ref_file,  bias_file, 
-                bias_mode, X, M, initial, gap, theta1, theta2, no_twice, 
+                bias_mode, X, Mmax, Mmin, Mgap, theta1, theta2, no_twice, 
                 sample_num, print_detail, FLmean, FLstd, mate_mode, 
                 auto_min, TOTAL_READ), callback=show_progress)
         pool.close()
