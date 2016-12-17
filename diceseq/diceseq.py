@@ -74,9 +74,9 @@ def main():
         "BIAS_FILE(s): bias files from dice-bias, use '---' for time specific "
         "files, [default: unif None None]"))
 
-    group.add_option("--thetas", nargs=2, dest="thetas", default=[10,"None"], 
+    group.add_option("--thetas", nargs=2, dest="thetas", default=[3,"None"], 
         help=("Two arguments for hyperparameters in GP model: theta1,theta2. "
-        "default: [10 None], where theta2 covers 1/3 duration."))
+        "default: [3 None], where theta2 covers 1/3 duration."))
     group.add_option("--mcmc", type="int", nargs=4, dest="mcmc_run",
         default=[0,20000,1000,100], help=("Four arguments for in MCMC "
         "iterations: save_sample,max_run,min_run,gap_run. Required: "

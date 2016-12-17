@@ -67,7 +67,8 @@ There are more parameters for setting (``diceseq -h`` always give the version yo
 Options:
   -h, --help            show this help message and exit
   -a ANNO_FILE, --anno_file=ANNO_FILE
-                        Annotation file for genes and transcripts
+                        Annotation file for genes and transcripts in GTF or
+                        GFF3
   -s SAM_LIST, --sam_list=SAM_LIST
                         Sorted and indexed bam/sam files, use ',' for
                         replicates and '---' for time points, e.g.,
@@ -80,9 +81,6 @@ Options:
   Optional arguments:
     -p NPROC, --nproc=NPROC
                         Number of subprocesses [default: 4]
-    --anno_type=ANNO_TYPE
-                        Type of annotation file: GTF, GFF3, UCSC_table
-                        [default: GTF]
     --add_premRNA       Add the pre-mRNA as a transcript
     --fLen=FRAG_LENG    Two arguments for fragment length: mean and standard
                         diveation, default: auto-detected
@@ -93,11 +91,11 @@ Options:
                         bias, use '---' for time specific files, [default:
                         unif None None]
     --thetas=THETAS     Two arguments for hyperparameters in GP model:
-                        theta1,theta2. default: [10 None], where theta2 covers
+                        theta1,theta2. default: [3 None], where theta2 covers
                         1/3 duration.
     --mcmc=MCMC_RUN     Four arguments for in MCMC iterations:
                         save_sample,max_run,min_run,gap_run. Required:
-                        save_sample =< 3/4*mim_run. [default: 500 20000 1000
+                        save_sample =< 3/4*mim_run. [default: 0 20000 1000
                         100]
 
 Suggestions on setting hyperparameter :math:`\theta_2`: if you want :math:`\theta_2` cover :math:`\eta \in (0,1)` of duration, then you should set :math:`\theta_2=(\eta(t_{max}-t_{min}))^2`. The default is :math:`\eta = 1/3`. Generally, we suggest using a small :math:`\theta_2`, e.g., covering less than 1/3 length, while it really depends on the time scale.

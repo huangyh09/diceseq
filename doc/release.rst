@@ -2,6 +2,13 @@
 Release notes
 =============
 
+Release 0.2.4 (17/12/2016)
+==========================
+* fix some bugs
+* supporting gtf and gff3 and remove ``--anno_type``
+* change default theta1 as 3, meaning more flat prior.
+
+
 Release 0.2.3 (04/11/2016)
 ==========================
 * fix some bugs

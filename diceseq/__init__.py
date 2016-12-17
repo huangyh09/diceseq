@@ -2,7 +2,7 @@
 # Licensed under the MIT License at
 # http://opensource.org/licenses/MIT
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 import pyximport; pyximport.install()
 
@@ -11,7 +11,7 @@ from .utils.out_utils import DiceFile, SampleFile
 from .utils.bias_utils import FastaFile, BiasFile
 from .utils.tran_utils import TranUnits, TranSplice
 from .utils.sam_utils import load_samfile, fetch_reads
-from .utils.gtf_utils import Gene, Transcript, load_annotation
+from .utils.gtf_utils import Gene, Transcript, load_annotation, loadgene
 
 from .models.mcmc_sampler import mcmc_sampler
 from .models.bayes_factor import miso_BF, dicediff_BF, get_BioVar
