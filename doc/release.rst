@@ -1,22 +1,31 @@
-=============
-Release notes
+=======
+History
+=======
+
+Release 0.2.x
 =============
 
+Release 0.2.5 (02/01/2017)
+--------------------------
+* change licence to Apache License v2
+* remove requirement of Cython
+
+
 Release 0.2.4 (17/12/2016)
-==========================
+--------------------------
 * fix some bugs
 * supporting gtf and gff3 and remove ``--anno_type``
 * change default theta1 as 3, meaning more flat prior.
 
 
 Release 0.2.3 (04/11/2016)
-==========================
+--------------------------
 * fix some bugs
 * change default save_sample into 0
 
 
 Release 0.2.2 (29/10/2016)
-==========================
+--------------------------
 
 * fix some bugs
 * simplify the arguments
@@ -27,21 +36,24 @@ Release 0.2.2 (29/10/2016)
 
 
 Release 0.2.1 (16/06/2016)
-==========================
+--------------------------
 
 * updated calculating TOTAL_COUNTS for pysam 0.90
 * update documentary by adding more examples and tutorials
 
 
 Release 0.2.0 (16/05/2016)
-==========================
+--------------------------
 
 * fixed some bugs
 * cleaned some codes
 
 
+Release 0.1.x
+=============
+
 Release 0.1.9 (29/01/2016)
-==========================
+--------------------------
 
 * fixed some bugs
 * tested the estimate of bias parameters and fragment length distribution
@@ -52,7 +64,7 @@ Release 0.1.9 (29/01/2016)
 
 
 Release 0.1.7 (21/12/2015)
-==========================
+--------------------------
 
 * largely improved for the case with multiple (more than 10) isoforms, and introduced EM algorithm for buin-in
 * extended for python 3
@@ -66,7 +78,7 @@ Release 0.1.7 (21/12/2015)
 
 
 Release 0.1.6 (10/11/2015)
-==========================
+--------------------------
 
 * slight change to be compatible with pysam 0.8.3
 
@@ -78,7 +90,7 @@ Release 0.1.6 (10/11/2015)
 
 
 Release 0.1.0 (26/10/2015)
-==========================
+--------------------------
 
 * probabilistic models
 	* finished dynamic model: estimate jointly
@@ -91,8 +103,11 @@ Release 0.1.0 (26/10/2015)
 	* reads simulation
 
 
+Release 0.0.x
+=============
+
 Release 0.0.1 (01/09/2015)
-==========================
+--------------------------
 
 * first version of DICEseq
 

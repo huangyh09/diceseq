@@ -1,10 +1,7 @@
-# Copyright(c) 2016, The DICEseq developer (Yuanhua Huang)
-# Licensed under the MIT License at
-# http://opensource.org/licenses/MIT
 
-__version__ = "0.2.3"
+__version__ = "0.2.5"
 
-import pyximport; pyximport.install()
+# import pyximport; pyximport.install()
 
 from .utils.reads_utils import ReadSet
 from .utils.out_utils import DiceFile, SampleFile

@@ -14,7 +14,7 @@ import numpy as np
 import multiprocessing
 from optparse import OptionParser, OptionGroup
 
-import pyximport; pyximport.install()
+# import pyximport; pyximport.install()
 from .utils.reads_utils import ReadSet
 from .utils.gtf_utils import loadgene #load_annotation
 from .utils.sam_utils import load_samfile, fetch_reads

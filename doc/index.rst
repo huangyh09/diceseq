@@ -1,9 +1,9 @@
-DICEseq Homepage
-================
+Home
+====
 
-:Author: Yuanhua Huang
-:Version: 0.2.4
-:Last viewed: Dec 17, 2016
+.. :Author: Yuanhua Huang
+.. :Version: 0.2.4
+.. :Last viewed: Dec 17, 2016
 
 About DICEseq
 -------------
@@ -31,17 +31,17 @@ In addition, DICEseq package also provides interface of a set of functions and a
 
 
 Contents
---------
+========
 
 .. toctree::
    :maxdepth: 2
 
    install.rst
-   usage.rst
-   tutorial.rst
-   api.rst
+   manual.rst
+   example.rst
    faq.rst
    release.rst
+
 
 
 References
@@ -73,3 +73,5 @@ Yuanhua Huang and Guido Sanguinetti. `Statistical modeling of isoform splicing d
 
    The python language
       http://www.python.org
+
+

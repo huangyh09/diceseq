@@ -10,7 +10,7 @@ import numpy as np
 import multiprocessing
 from optparse import OptionParser, OptionGroup
 
-import pyximport; pyximport.install()
+# import pyximport; pyximport.install()
 from .utils.gtf_utils import loadgene
 from .utils.run_utils import get_psi, sort_dice_file
 

@@ -15,17 +15,18 @@ Please write them in the github issues:
 https://github.com/huangyh09/diceseq/issues
 
 
-DICEseq for single time point
-=============================
+Single time point
+=================
 Though DICEseq is developed for time series RNA-seq, it also performs very well
 for single time point, like most RNA-seq experiment. With ``theta1=3.0``, you 
 should get similar results as MISO.
 
 
-input ``sam_list`` in `diceseq`
-===============================
+Input sam files
+===============
 
-The format of ``sam_list`` is a string line, e.g.
+Sorted and indexed sam file(s) are required for `diceseq` command. The format 
+of ``sam_list`` is a string line, e.g.
 
 ::
 

@@ -6,7 +6,7 @@ import numpy as np
 import multiprocessing
 from optparse import OptionParser, OptionGroup
 
-import pyximport; pyximport.install()
+# import pyximport; pyximport.install()
 from .utils.tran_utils import TranUnits
 from .utils.gtf_utils import loadgene #load_annotation
 from .utils.bias_utils import BiasFile, FastaFile

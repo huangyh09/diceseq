@@ -1,6 +1,6 @@
-=================
-Usages of DICEseq
-=================
+======
+Manual
+======
 
 This page contains the details on how to use the functions that DICEseq provides. Before using diceseq and dice-count, you need the annotation file, which you could download from sepcific database, e.g., Ensembl_, but you may need to change it to the format_ that diceseq supports.
 
@@ -62,55 +62,71 @@ This command allows you to estimate isoform proportions jointly (or separately i
 
 There are more parameters for setting (``diceseq -h`` always give the version you are using):
 
-**Usage: diceseq [options]**
+.. code-block:: html
 
-Options:
-  -h, --help            show this help message and exit
-  -a ANNO_FILE, --anno_file=ANNO_FILE
-                        Annotation file for genes and transcripts in GTF or
-                        GFF3
-  -s SAM_LIST, --sam_list=SAM_LIST
-                        Sorted and indexed bam/sam files, use ',' for
-                        replicates and '---' for time points, e.g.,
-                        T1_rep1.bam,T1_rep2.bam---T2.bam
-  -t TIME_SEQ, --time_seq=TIME_SEQ
-                        The time for the input samples [Default: 0,1,2,...]
-  -o OUT_FILE, --out_file=OUT_FILE
-                        Prefix of the output files with full path
+  Usage: diceseq [options]
 
-  Optional arguments:
-    -p NPROC, --nproc=NPROC
-                        Number of subprocesses [default: 4]
-    --add_premRNA       Add the pre-mRNA as a transcript
-    --fLen=FRAG_LENG    Two arguments for fragment length: mean and standard
-                        diveation, default: auto-detected
-    --bias=BIAS_ARGS    Three argments for bias correction:
-                        BIAS_MODE,REF_FILE,BIAS_FILE(s). BIAS_MODE: unif,
-                        end5, end3, both. REF_FILE: the genome reference file
-                        in fasta format. BIAS_FILE(s): bias files from dice-
-                        bias, use '---' for time specific files, [default:
-                        unif None None]
-    --thetas=THETAS     Two arguments for hyperparameters in GP model:
-                        theta1,theta2. default: [3 None], where theta2 covers
-                        1/3 duration.
-    --mcmc=MCMC_RUN     Four arguments for in MCMC iterations:
-                        save_sample,max_run,min_run,gap_run. Required:
-                        save_sample =< 3/4*mim_run. [default: 0 20000 1000
-                        100]
+  Options:
+    -h, --help            show this help message and exit
+    -a ANNO_FILE, --anno_file=ANNO_FILE
+                          Annotation file for genes and transcripts in GTF or
+                          GFF3
+    -s SAM_LIST, --sam_list=SAM_LIST
+                          Sorted and indexed bam/sam files, use ',' for
+                          replicates and '---' for time points, e.g.,
+                          T1_rep1.bam,T1_rep2.bam---T2.bam
+    -t TIME_SEQ, --time_seq=TIME_SEQ
+                          The time for the input samples [Default: 0,1,2,...]
+    -o OUT_FILE, --out_file=OUT_FILE
+                          Prefix of the output files with full path
+
+    Optional arguments:
+      -p NPROC, --nproc=NPROC
+                          Number of subprocesses [default: 4]
+      --add_premRNA       Add the pre-mRNA as a transcript
+      --fLen=FRAG_LENG    Two arguments for fragment length: mean and standard
+                          diveation, default: auto-detected
+      --bias=BIAS_ARGS    Three argments for bias correction:
+                          BIAS_MODE,REF_FILE,BIAS_FILE(s). BIAS_MODE: unif,
+                          end5, end3, both. REF_FILE: the genome reference file
+                          in fasta format. BIAS_FILE(s): bias files from dice-
+                          bias, use '---' for time specific files, [default:
+                          unif None None]
+      --thetas=THETAS     Two arguments for hyperparameters in GP model:
+                          theta1,theta2. default: [3 None], where theta2 covers
+                          1/3 duration.
+      --mcmc=MCMC_RUN     Four arguments for in MCMC iterations:
+                          save_sample,max_run,min_run,gap_run. Required:
+                          save_sample =< 3/4*mim_run. [default: 0 20000 1000
+                          100]
 
 Suggestions on setting hyperparameter :math:`\theta_2`: if you want :math:`\theta_2` cover :math:`\eta \in (0,1)` of duration, then you should set :math:`\theta_2=(\eta(t_{max}-t_{min}))^2`. The default is :math:`\eta = 1/3`. Generally, we suggest using a small :math:`\theta_2`, e.g., covering less than 1/3 length, while it really depends on the time scale.
 
 For output, you may see two files out_file.dice and out_file.sample.gz. As the default of ``sample_num=0``, you won't see the xx.sample.gz file. An example of xx.dice file is like this. ::
 
-    tran_id gene_id logLik  transLen  FPKM_T1.5 ratio_T1.5  ratio_lo_T1.5 ratio_hi_T1.5 FPKM_T2.5 ratio_T2.5  ratio_lo_T2.5 ratio_hi_T2.5 FPKM_T5.0 ratio_T5.0  ratio_lo_T5.0 ratio_hi_T5.0
-    YMR116C.m YMR116C -3.8e+03  960 3.80e+04  0.472 0.366 0.577 6.30e+04  0.680 0.595 0.757 9.38e+04  0.885 0.837 0.940
-    YMR116C.p YMR116C -3.8e+03  1233  4.25e+04  0.528 0.423 0.634 2.97e+04  0.320 0.247 0.405 1.21e+04  0.115 0.060 0.164
-    YKL006W.m YKL006W -2.1e+03  417 2.36e+04  0.292 0.195 0.393 5.34e+04  0.583 0.471 0.683 9.00e+04  0.850 0.769 0.925
-    YKL006W.p YKL006W -2.1e+03  815 5.70e+04  0.708 0.608 0.805 3.83e+04  0.417 0.318 0.529 1.58e+04  0.150 0.075 0.233
+    tran_id   gene_id logLik    transLen  FPKM_T0  ratio_T0  ratio_lo_T0 ratio_hi_T0 FPKM_T1   ratio_T1  ratio_lo_T1 ratio_hi_T1 FPKM_T2   ratio_T2 ratio_lo_T2 ratio_hi_T2
+    YMR116C.m YMR116C -3.8e+03  960       3.80e+04  0.472    0.366       0.577       6.30e+04  0.680     0.595       0.757       9.38e+04  0.885    0.837     0.940
+    YMR116C.p YMR116C -3.8e+03  1233      4.25e+04  0.528    0.423       0.634       2.97e+04  0.320     0.247       0.405       1.21e+04  0.115    0.060     0.164
+    YKL006W.m YKL006W -2.1e+03  417       2.36e+04  0.292    0.195       0.393       5.34e+04  0.583     0.471       0.683       9.00e+04  0.850    0.769     0.925
+    YKL006W.p YKL006W -2.1e+03  815       5.70e+04  0.708    0.608       0.805       3.83e+04  0.417     0.318       0.529       1.58e+04  0.150    0.075     0.233
 
-It contains the transcript id, gene id, log likelihood at gene level, transcript length, and FPKM, isoform ratio, 95% lower bound, 95% higher bound for each time point.
+It contains the 4+4t columns, with 4 basic features and 4 features for each time:
 
-The log likelihood could be used to detect differential of isoform dynamics with Bayes factor. See more details in tutorial.
+* column 1: transcript id
+
+* column 2: gene id
+
+* column 3: log likelihood at gene level
+
+* column 4: transcript length
+
+* column 5: FPKM for a time point
+
+* column 6: isoform fraction for a time point
+
+* column 7: lower bound of 95% confidence interval of isoform fraction
+
+* column 8: higher bound of 95% confidence interval of isoform fraction
 
 
 3. dice-count
@@ -124,36 +140,38 @@ This command allows you to calculate the reads counts in an aligned + sorted + i
 
 There are more parameters for setting (``dice-count -h`` always give the version you are using):
 
-**Usage: dice-count [options]**
+.. code-block:: html
 
-Options:
-  -h, --help            show this help message and exit
-  -a ANNO_FILE, --anno_file=ANNO_FILE
-                        Annotation file for genes and transcripts
-  -s SAM_FILE, --sam_file=SAM_FILE
-                        Sorted and indexed bam/sam files
-  -o OUT_FILE, --out_file=OUT_FILE
-                        The counts in tsv file
+  Usage: dice-count [options]
 
-  Optional arguments:
-    -p NPROC, --nproc=NPROC
-                        Number of subprocesses [default: 4]
-    --anno_type=ANNO_TYPE
-                        Type of annotation file: GTF, GFF3, UCSC_table
-                        [default: GTF]
-    --mapq_min=MAPQ_MIN
-                        Minimum mapq for reads. [default: 10]
-    --mismatch_max=MISMATCH_MAX
-                        Maximum mismatch for reads. [default: 5]
-    --rlen_min=RLEN_MIN
-                        Minimum length for reads. [default: 1]
-    --overhang=OVERHANG
-                        Minimum overhang on junctions. [default: 1]
-    --duplicate         keep duplicate reads; otherwise not
-    --partial           keep reads partial in the region; otherwise not
-    --single_end        use reads as single-end; otherwise paired-end
-    --junction          return junction and boundary reads, only for gene with
-                        one exon-intron-exon structure; otherwise no junction.
+  Options:
+    -h, --help            show this help message and exit
+    -a ANNO_FILE, --anno_file=ANNO_FILE
+                          Annotation file for genes and transcripts
+    -s SAM_FILE, --sam_file=SAM_FILE
+                          Sorted and indexed bam/sam files
+    -o OUT_FILE, --out_file=OUT_FILE
+                          The counts in tsv file
+
+    Optional arguments:
+      -p NPROC, --nproc=NPROC
+                          Number of subprocesses [default: 4]
+      --anno_type=ANNO_TYPE
+                          Type of annotation file: GTF, GFF3, UCSC_table
+                          [default: GTF]
+      --mapq_min=MAPQ_MIN
+                          Minimum mapq for reads. [default: 10]
+      --mismatch_max=MISMATCH_MAX
+                          Maximum mismatch for reads. [default: 5]
+      --rlen_min=RLEN_MIN
+                          Minimum length for reads. [default: 1]
+      --overhang=OVERHANG
+                          Minimum overhang on junctions. [default: 1]
+      --duplicate         keep duplicate reads; otherwise not
+      --partial           keep reads partial in the region; otherwise not
+      --single_end        use reads as single-end; otherwise paired-end
+      --junction          return junction and boundary reads, only for gene with
+                          one exon-intron-exon structure; otherwise no junction.
 
 An output without ``--junction``::
 
