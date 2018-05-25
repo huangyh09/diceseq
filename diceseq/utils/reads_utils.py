@@ -14,7 +14,7 @@ class ReadSet(object):
         self.dloc = np.ones((self.length,self.size)) #down-stream location(big)
         self.qlen = np.ones((self.length,self.size)) #aligned reads length
         self.rlen = np.ones((self.length,self.size)) #orignal reads length
-        self.prob = np.ones((self.length,self.size)) #reads report probability
+        # self.prob = np.ones((self.length,self.size)) #reads report probability
         self.mapp = np.ones((self.length,self.size)) #reads mapping probability
 
         for s in range(self.size):
@@ -30,11 +30,11 @@ class ReadSet(object):
                 qual_bases = []
                 qual_bases[:] = r.qqual
                 #Note: still need improvement on the mismatched bases
-                for _qbase in qual_bases:
-                    self.prob[i,s] = self.prob[i,s]*(1-10**(-ord(_qbase)/10.0))
+                # for _qbase in qual_bases:
+                #     self.prob[i,s] = self.prob[i,s]*(1-10**(-ord(_qbase)/10.0))
                 # if r.rlen < (r.aend - r.pos): print(r.rlen, r.aend, r.pos)
 
-    def get_loc_idx(self, exons, strand, overhang=1):
+    def get_loc_idx(self, exons, strand, overhang=1, partial=False):
         """get the index on exon or intron"""
         self.strand = strand
         self.exons  = np.sort(np.array(exons).reshape(-1,2), axis=0)
@@ -51,13 +51,19 @@ class ReadSet(object):
 
         # exon1
         loc_idx[:,0] = self.dloc.max(axis=1) <= self.exons[0,1]
-        len_use[:,0] = self.seglen[0] - flen + 1
+        if partial:
+            len_use[:,0] = self.seglen[0]
+        else:
+            len_use[:,0] = self.seglen[0] - flen + 1
 
         # exon1-intron1 boundary, SSite5
         loc_idx[:,1] = ((self.uloc.min(axis=1) <= self.exons[0,1]-overhang+1) *
                         (self.dloc.max(axis=1) <= self.exons[1,0]-1) *
                         (self.dloc.max(axis=1) >= self.exons[0,1]+overhang))
-        len_use[:,1] = np.minimum(flen, min(self.seglen[0], self.seglen[1]))
+        if partial:
+            len_use[:,1] = np.minimum(flen, self.seglen[1])
+        else:
+            len_use[:,1] = np.minimum(flen, min(self.seglen[0], self.seglen[1]))
 
         # intron1
         loc_idx[:,2] = ((self.uloc.min(axis=1) >= self.exons[0,1]+1) *
@@ -68,19 +74,28 @@ class ReadSet(object):
         loc_idx[:,3] = ((self.uloc.min(axis=1) >= self.exons[0,1]+1) *
                         (self.uloc.min(axis=1) <= self.exons[1,0]-overhang) *
                         (self.dloc.max(axis=1) >= self.exons[1,0]+overhang-1))
-        len_use[:,3] = np.minimum(flen, min(self.seglen[1], self.seglen[2]))
+        if partial:
+            len_use[:,3] = np.minimum(flen, self.seglen[2])
+        else:
+            len_use[:,3] = np.minimum(flen, min(self.seglen[1], self.seglen[2]))
 
         # exon2
         loc_idx[:,4] = self.uloc.min(axis=1) >= self.exons[1,0]
-        len_use[:,4] = self.seglen[2] - flen + 1
+        if partial:
+            len_use[:,4] = self.seglen[2]
+        else:
+            len_use[:,4] = self.seglen[2] - flen + 1
 
         # exon1-exon2 junction, junction
         loc_idx[:,5] = ((self.uloc <= self.exons[0,1]-overhang+1) *
                         (self.dloc >= self.exons[1,0]+overhang-1) *
                         (self.dloc-self.uloc-self.qlen > self.seglen[1]-5)
                         ).sum(axis=1)>0
-        len_use[:,5] = np.minimum(np.maximum(rlen1, rlen2), 
-                                  min(self.seglen[0], self.seglen[2]))
+        if partial:
+            len_use[:,5] = flen
+        else:
+            len_use[:,5] = np.minimum(np.maximum(rlen1, rlen2), 
+                                      min(self.seglen[0], self.seglen[2]))
 
         # exon1-intron-exon2
         loc_idx[:,6] = ((self.uloc.min(axis=1) <= self.exons[0,1]) *
@@ -88,12 +103,18 @@ class ReadSet(object):
                         ((self.uloc.max(axis=1) <= self.exons[1,0]-overhang) +
                          (self.dloc.min(axis=1) >= self.exons[0,1]+overhang))*
                         (True - loc_idx[:,5]))
-        len_use[:,6] = min(self.seglen[0], self.seglen[2])
+        if partial:
+            len_use[:,6] = flen
+        else:
+            len_use[:,6] = min(self.seglen[0], self.seglen[2])
         
         # exon1-exon2 unsure, exon_both
         loc_idx[:,7] = ((self.uloc.max(axis=1) >= self.exons[1,0]) *
                         (self.dloc.min(axis=1) <= self.exons[0,1]))
-        len_use[:,7] = np.minimum(self.seglen[0]-rlen1,self.seglen[2]-rlen2)+1
+        if partial:
+            len_use[:,7] = np.minimum(self.seglen[0], self.seglen[2])
+        else:
+            len_use[:,7] = np.minimum(self.seglen[0]-rlen1,self.seglen[2]-rlen2)+1
 
         idx = np.where(len_use <= 0)
         len_use[idx] = 1.0

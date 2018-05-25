@@ -66,7 +66,9 @@ class BiasFile:
             self.pos3_unif[a,b] = all_lines[i].split("\t")[4]
             self.pos5_prob[a,b] = max(0, self.pos5_bias[a,b] / self.pos5_unif[a,b])
             self.pos3_prob[a,b] = max(0, self.pos3_bias[a,b] / self.pos3_unif[a,b])
-        
+            # self.pos5_prob[a,b] = self.pos5_bias[a,b] / self.pos5_unif[a,b]
+            # self.pos3_prob[a,b] = self.pos3_bias[a,b] / self.pos3_unif[a,b]
+
         ii, cnt = all_lines[105].split("|")[0], -1
         for i in range(105,849):
             if ii == all_lines[i].split("|")[0]: 
@@ -321,3 +323,21 @@ class BiasFile:
                 ax2.plot([], [], linewidth=2.0, label=_label)
             ax2.legend(loc=3)
             ax2.axis('off')
+
+    def plot_bias_full(self):
+        pl.subplot(3,2,1)
+        self.plot_bias(mode="flen")
+        pl.subplot(3,2,2)
+        self.plot_bias(mode="legend")
+        pl.subplot(3,2,3)
+        self.plot_bias(mode="pos5")
+        pl.legend().set_visible(False)
+        pl.subplot(3,2,4)
+        self.plot_bias(mode="pos3")
+        pl.legend().set_visible(False)
+        pl.subplot(3,2,5)
+        self.plot_bias(mode="seq5")
+        pl.legend().set_visible(False)
+        pl.subplot(3,2,6)
+        self.plot_bias(mode="seq3")
+        pl.legend().set_visible(False)

@@ -149,7 +149,7 @@ def main():
 
     no_twice = False
     auto_min = 200
-    mate_mode = "pair"
+    mate_mode = "single"
     print_detail = False
 
     nproc = options.nproc

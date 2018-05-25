@@ -35,13 +35,13 @@ def Psi2Y(Psi):
     return Y
 
 
-def sort_dice_file(fname, tran_ids):
-    data = np.loadtxt(fname, dtype=str, delimiter="\t")
+def sort_dice_file(fname, tran_ids, delimiter="\t"):
+    data = np.genfromtxt(fname, dtype=str, delimiter=delimiter)
     idx = id_mapping(tran_ids, data[1:, 0])
     fid = open(fname, "w")
-    fid.writelines("\t".join(list(data[0,:])) + "\n")
+    fid.writelines(delimiter.join(list(data[0,:])) + "\n")
     for i in idx:
-        fid.writelines("\t".join(list(data[i+1,:])) + "\n")
+        fid.writelines(delimiter.join(list(data[i+1,:])) + "\n")
     fid.close()
     
 
