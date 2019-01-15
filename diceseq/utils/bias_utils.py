@@ -3,7 +3,7 @@
 
 import pysam
 import numpy as np
-import pylab as pl
+import matplotlib.pyplot as plt
 
 def norm_pdf(x, mu, sigma):
     return 1 / (sigma*np.sqrt(2*np.pi)) * np.exp(-1/2*((x-mu)/sigma)**2)
@@ -254,44 +254,44 @@ class BiasFile:
         if mode == "flen":
             xx = np.arange(0, 1000)
             yy = norm_pdf(xx, self.flen_mean, self.flen_std)
-            pl.fill(xx, yy, 'k')#, linewidth=2.0)
-            pl.xlabel("fragment length")
-            pl.ylabel("$p(L)$")
-            pl.xlim(0, 400)
+            plt.fill(xx, yy, 'k')#, linewidth=2.0)
+            plt.xlabel("fragment length")
+            plt.ylabel("$p(L)$")
+            plt.xlim(0, 400)
 
         #position bias
         if mode == "pos5" or mode == "pos3":
-            pl.plot(np.arange(20), np.ones(20), '--k')
+            plt.plot(np.arange(20), np.ones(20), '--k')
             for i in range(5):
                 _label="bin%d: %.0f-%.0f bp" %(i+1, self.percentile[i,0], self.percentile[i,1])
                 if mode == "pos5":
-                    pl.plot(np.arange(20)+0.5, self.pos5_prob[i,:], linewidth=2.0, label=_label)
+                    plt.plot(np.arange(20)+0.5, self.pos5_prob[i,:], linewidth=2.0, label=_label)
                 else:
-                    pl.plot(np.arange(20)+0.5, self.pos3_prob[i,:], linewidth=2.0, label=_label)
-            pl.legend(loc="best")
-            pl.xlabel("fractional transcription position")
-            pl.ylabel("bias weight")
-            pl.ylim(0,2)
+                    plt.plot(np.arange(20)+0.5, self.pos3_prob[i,:], linewidth=2.0, label=_label)
+            plt.legend(loc="best")
+            plt.xlabel("fractional transcription position")
+            plt.ylabel("bias weight")
+            plt.ylim(0,2)
 
         #sequence bias
         if mode == "seq5" or mode == "seq3":
             base = ["A", "T", "G", "C"]
             _color = ["g", "r", "orange", "b"]
             if mode == "seq5":
-                pl.plot(np.arange(21)-8, np.ones(21), '--k')
-                pl.plot(np.zeros(2), np.array([0, 2.0]), '--k', linewidth=2.0)
+                plt.plot(np.arange(21)-8, np.ones(21), '--k')
+                plt.plot(np.zeros(2), np.array([0, 2.0]), '--k', linewidth=2.0)
                 percent = np.zeros((4,21))
                 for i in range(4):
                     for j in range(21):
                         _seq_bias = self.seq5_prob[str(j)]
                         percent[i,j] = np.sum(_seq_bias[i*4**(self.chain_len[j]-1): 
                             (i+1)*4**(self.chain_len[j]-1)]) / 4**(self.chain_len[j]-1)
-                    pl.plot(np.arange(21)-8, percent[i,:], ":o", c=_color[i], label=base[i])
-                pl.xlabel("offset from 3' fragment end")
-                pl.xlim(-8,12)
+                    plt.plot(np.arange(21)-8, percent[i,:], ":o", c=_color[i], label=base[i])
+                plt.xlabel("offset from 3' fragment end")
+                plt.xlim(-8,12)
             else:
-                pl.plot(np.arange(21)-12, np.ones(21), '--k')
-                pl.plot(np.zeros(2), np.array([0, 2.0]), '--k', linewidth=2.0)
+                plt.plot(np.arange(21)-12, np.ones(21), '--k')
+                plt.plot(np.zeros(2), np.array([0, 2.0]), '--k', linewidth=2.0)
                 percent = np.zeros((4,21))
                 for i in range(4):
                     for k in range(21):
@@ -299,25 +299,25 @@ class BiasFile:
                         _seq_bias = self.seq3_prob[str(j)]
                         percent[i,j] = np.sum(_seq_bias[i*4**(self.chain_len[j]-1): 
                             (i+1)*4**(self.chain_len[j]-1)]) / 4**(self.chain_len[j]-1)
-                    pl.plot(np.arange(21)-12, percent[i,:], ":o", c=_color[i], label=base[i])
-                pl.xlabel("offset from 3' fragment end")
-                pl.xlim(-12,8)
-            pl.legend(loc="best")
-            pl.xlabel("offset from %s' fragment end" %mode[3])
-            pl.ylabel("bias weight")
-            pl.ylim(0.5,2)
+                    plt.plot(np.arange(21)-12, percent[i,:], ":o", c=_color[i], label=base[i])
+                plt.xlabel("offset from 3' fragment end")
+                plt.xlim(-12,8)
+            plt.legend(loc="best")
+            plt.xlabel("offset from %s' fragment end" %mode[3])
+            plt.ylabel("bias weight")
+            plt.ylim(0.5,2)
 
         #legend only
         if mode == "legend":
             base = ["A", "T", "G", "C"]
             _color = ["g", "r", "orange", "b"]
-            pl.axis('off')
-            ax1 = pl.twinx()
+            plt.axis('off')
+            ax1 = plt.twinx()
             for i in range(len(base)):
                 ax1.plot([], [], "o", c=_color[i], label=base[i])
             ax1.legend(numpoints=1, loc=4)
             ax1.axis('off')
-            ax2 = pl.twinx()
+            ax2 = plt.twinx()
             for i in range(5):
                 _label="bin%d: %.0f-%.0f bp" %(i+1, self.percentile[i,0], self.percentile[i,1])
                 ax2.plot([], [], linewidth=2.0, label=_label)
@@ -325,19 +325,19 @@ class BiasFile:
             ax2.axis('off')
 
     def plot_bias_full(self):
-        pl.subplot(3,2,1)
+        plt.subplot(3,2,1)
         self.plot_bias(mode="flen")
-        pl.subplot(3,2,2)
+        plt.subplot(3,2,2)
         self.plot_bias(mode="legend")
-        pl.subplot(3,2,3)
+        plt.subplot(3,2,3)
         self.plot_bias(mode="pos5")
-        pl.legend().set_visible(False)
-        pl.subplot(3,2,4)
+        plt.legend().set_visible(False)
+        plt.subplot(3,2,4)
         self.plot_bias(mode="pos3")
-        pl.legend().set_visible(False)
-        pl.subplot(3,2,5)
+        plt.legend().set_visible(False)
+        plt.subplot(3,2,5)
         self.plot_bias(mode="seq5")
-        pl.legend().set_visible(False)
-        pl.subplot(3,2,6)
+        plt.legend().set_visible(False)
+        plt.subplot(3,2,6)
         self.plot_bias(mode="seq3")
-        pl.legend().set_visible(False)
+        plt.legend().set_visible(False)

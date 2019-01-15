@@ -3,14 +3,20 @@ DICEseq - Dynamic Isoform spliCing Estimator via sequencing data
 See: http://diceseq.sourceforge.net
 """
 
+import sys
+if sys.version_info >= (3,):
+    sys.exit('diceseq requires Python 2')
+
 # Always prefer setuptools over distutils
 from setuptools import setup, find_packages, Extension
 # To use a consistent encoding
 from codecs import open
 from os import path
-import diceseq
 
 here = path.abspath(path.dirname(__file__))
+
+# Set __version__ for the project.
+exec(open("./diceseq/version.py").read())
 
 # Get the long description from the relevant file
 with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
@@ -28,7 +34,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version=diceseq.__version__,#'0.2.0', #check __init__.py
+    version=__version__,
 
     description='DICEseq: Dynamic Isoform spliCing Estimator via sequencing data',
     long_description=long_description,
@@ -41,7 +47,7 @@ setup(
     author_email='Y.Huang@ed.ac.uk',
 
     # Choose your license
-    license='MIT',
+    license='Apache-2.0',
 
     # What does your project relate to?
     keywords=['splicing isoform quantification', 'time series RNA-seq',
