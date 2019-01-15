@@ -5,7 +5,7 @@
 import sys
 import gzip
 import numpy as np
-import pylab as pl
+import matplotlib.pyplot as plt
 
 class SampleFile:
     """docstring for SampleFile"""
@@ -69,17 +69,17 @@ class SampleFile:
         for c in range(len(_tran)):
             _color = np.random.rand(3,1)
             psi_err = [psi_mean[:,c]-psi_CI95[:,c,1], psi_CI95[:,c,0]-psi_mean[:,c]]
-            pl.errorbar(T, psi_mean[:,c], psi_err, fmt='.', color=_color, markersize=7)
-            pl.plot(xx, psi_pred[:,c], '-', color=_color, label=_tran[c])
-            pl.fill(np.concatenate([xx, xx[::-1]]), np.concatenate([psi_pred95[:,c,0],psi_pred95[:,c,1][::-1]]), 
+            plt.errorbar(T, psi_mean[:,c], psi_err, fmt='.', color=_color, markersize=7)
+            plt.plot(xx, psi_pred[:,c], '-', color=_color, label=_tran[c])
+            plt.fill(np.concatenate([xx, xx[::-1]]), np.concatenate([psi_pred95[:,c,0],psi_pred95[:,c,1][::-1]]), 
                     alpha=.15, fc=_color, ec='None')
 
-        pl.xlabel('$t$')
-        pl.ylabel('$\psi(t)$')
-        pl.ylim(-0.02, 1.02)
-        pl.xticks(T, T)
-        pl.title(self.gene[qidx])
-        pl.legend(loc="best")
+        plt.xlabel('$t$')
+        plt.ylabel('$\psi(t)$')
+        plt.ylim(-0.02, 1.02)
+        plt.xticks(T, T)
+        plt.title(self.gene[qidx])
+        plt.legend(loc="best")
         
 class DiceFile:
     """docstring for DiceFile"""

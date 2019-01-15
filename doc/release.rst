@@ -5,6 +5,11 @@ History
 Release 0.2.x
 =============
 
+Release 0.2.7 (15/01/2019)
+--------------------------
+* change pylab to matplotlib.pyplot in out_utils and bias_utils
+* add version.py, so don't require import diceseq before installation
+
 Release 0.2.5 (02/01/2017)
 --------------------------
 * change licence to Apache License v2

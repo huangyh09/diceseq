@@ -1,6 +1,4 @@
 
-__version__ = "0.2.6"
-
 # import pyximport; pyximport.install()
 
 from .utils.reads_utils import ReadSet
