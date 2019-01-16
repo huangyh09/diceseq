@@ -1,7 +1,8 @@
 import os
 import numpy as np
 
-import pyximport; pyximport.install()
+# import pyximport; pyximport.install()
+
 from ..models.model_GP import Psi_GP_MH
 from .out_utils import id_mapping
 from .sam_utils import load_samfile
