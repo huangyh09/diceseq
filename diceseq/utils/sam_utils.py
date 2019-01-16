@@ -7,14 +7,16 @@ import pysam
 def load_samfile(sam_file):
     """To load an indexed bam file"""
     ftype = sam_file.split(".")[-1]
-    if ftype != "bam" and ftype != "sam":
-        print("Error: file type need suffix of bam or sam.")
+    if ftype != "bam" and ftype != "sam" and ftype != "cram" :
+        print("Error: file type need suffix of bam, sam or cram.")
         sys.exit(1)
     # print("Loading a %s" %ftype + " with file name: %s" %sam_file)
-    if ftype == "bam":
-        samfile = pysam.Samfile(sam_file, "rb")
+    if ftype == "cram":
+        samfile = pysam.AlignmentFile(sam_file, "rc")
+    elif ftype == "bam":
+        samfile = pysam.AlignmentFile(sam_file, "rb")
     else:
-        samfile = pysam.Samfile(sam_file, "r")
+        samfile = pysam.AlignmentFile(sam_file, "r")
     return samfile
 
 
