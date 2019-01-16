@@ -1,6 +1,8 @@
 
 # import pyximport; pyximport.install()
 
+from .version import __version__
+
 from .utils.reads_utils import ReadSet
 from .utils.out_utils import DiceFile, SampleFile
 from .utils.bias_utils import FastaFile, BiasFile
