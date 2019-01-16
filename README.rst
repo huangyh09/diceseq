@@ -37,13 +37,27 @@ transcripts.
 Quick Start
 ===========
 
-**Installation**: 
+**Environment and installation**:
+
+DICEseq was initially developed in **Python 2** environment, hence best to be used
+in Py2 environment. By using Anaconda_ platform, no matter Py2 or Py 3, it is 
+easy to set up a conda_ environment with Py2, for example by following commond:
+
+.. code-block:: bash
+
+  conda create -n dicePy2 python=2.7 numpy==1.15.4 scipy==1.1.0 matplotlib==2.2.3 pysam==0.15.2
+
+  source activate dicePy2
+
+Once you are in a Python 2 environment, there are usually two ways to isntall a
+package: 
 
 - ``pip install diceseq``
 - or download this repository, and type ``python setup.py install``. 
-- You may need to add ``--user`` if you don't have the root permission and you 
-  don't use Anaconda_.
+- You may need to add ``--user`` if you don't have the root permission for that 
+  environment.
 
+.. _conda: https://conda.io/docs/user-guide/tasks/manage-environments.html
 .. _Anaconda: https://www.continuum.io/anaconda-overview
 
 **Arguments**
@@ -66,4 +80,5 @@ References
 
 Yuanhua Huang and Guido Sanguinetti. `Statistical modeling of isoform splicing 
 dynamics from RNA-seq time series data 
-<http://bioinformatics.oxfordjournals.org/content/32/19/2965.abstract>`_. \ **Bioinformatics**\, 2016, 32(19): 2965-2972.
+<http://bioinformatics.oxfordjournals.org/content/32/19/2965.abstract>`_. 
+\ **Bioinformatics**\, 2016, 32(19): 2965-2972.
