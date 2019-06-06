@@ -102,7 +102,7 @@ class ReadSet(object):
                         (self.dloc.max(axis=1) >= self.exons[1,0]) *
                         ((self.uloc.max(axis=1) <= self.exons[1,0]-overhang) +
                          (self.dloc.min(axis=1) >= self.exons[0,1]+overhang))*
-                        (True - loc_idx[:,5]))
+                        (1 - loc_idx[:,5]))
         if partial:
             len_use[:,6] = flen
         else:
